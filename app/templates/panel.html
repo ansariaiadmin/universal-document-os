@@ -1,0 +1,11 @@
+
+<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UDO Control Panel</title><link rel="stylesheet" href="/static/site.css"></head><body>
+<nav><b>UDO Control Panel</b><a href="/">Landing</a></nav>
+<main class="panel"><h1>اتاق کار محلی</h1><p>فایل را وارد کنید؛ سیستم نوع فایل را تشخیص می‌دهد، آن را در Workroom قرار می‌دهد و تحلیل اولیه را انجام می‌دهد.</p>
+<form id="f"><input id="file" type="file" required><select id="op"><option value="analyze">Analyze / Detect</option><option value="copy">Export text</option></select><select id="target"><option value="same">Same</option><option value="txt">TXT</option><option value="md">Markdown</option></select><button>اجرا</button></form>
+<div id="status" class="box">آماده</div><pre id="out" class="box"></pre></main>
+<script>
+const f=document.querySelector('#f'),s=document.querySelector('#status'),o=document.querySelector('#out');
+f.onsubmit=async e=>{e.preventDefault();let fd=new FormData();fd.append('file',document.querySelector('#file').files[0]);fd.append('operation',document.querySelector('#op').value);fd.append('target_format',document.querySelector('#target').value);s.textContent='در حال پردازش...';let r=await fetch('/api/process',{method:'POST',body:fd});let j=await r.json();s.textContent=j.status+' | '+j.detected_format+' | '+j.characters+' chars';o.textContent=JSON.stringify(j,null,2);if(j.download)o.innerHTML+='\\n\\n<a href="'+j.download+'">دانلود خروجی</a>'};
+</script></body></html>
