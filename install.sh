@@ -9,7 +9,7 @@ NC='\033[0m'
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Universal Document OS — Document Processing${NC}"
-echo -e "${BLUE}  نصب خودکار - Auto Installer v1.0.1${NC}"
+echo -e "${BLUE}  نصب خودکار - Auto Installer v0.9.2${NC}"
 echo -e "${BLUE}  سیستم عامل پردازش اسناد${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
