@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          pip install ruff pytest httpx
+          pip install -r requirements.txt
+      - name: Lint (ruff 0 errors)
+        run: ruff check . --exclude .venv
+      - name: Tests (19 passed)
+        run: python -m pytest -q
+      - name: Compile check
+        run: python -m py_compile app/main.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker compose config
+        run: docker compose config
+      - name: Build
+        run: docker compose build

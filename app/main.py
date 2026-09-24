@@ -1,10 +1,15 @@
 
-from fastapi import FastAPI, Request, UploadFile, File, Form
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+import json
+import mimetypes
+import shutil
+import time
+import uuid
+from pathlib import Path
+
+from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
-import uuid, shutil, mimetypes, json, subprocess, time, re
 
 BASE = Path(__file__).resolve().parent.parent
 UPLOADS = BASE/"data/uploads"
@@ -32,37 +37,57 @@ def detect(path):
     return mapping.get(ext, mimetypes.guess_type(path.name)[0] or "UNKNOWN")
 
 def extract_text(path):
-    ext = path.suffix.lower()
+    """Dispatch to adapters package with clean UnsupportedFormat handling."""
     try:
-        if ext == ".pdf":
-            from pypdf import PdfReader
-            return "\n".join((p.extract_text() or "") for p in PdfReader(str(path)).pages)
-        if ext == ".docx":
-            from docx import Document
-            d=Document(str(path))
-            return "\n".join(p.text for p in d.paragraphs)
-        if ext == ".xlsx":
-            from openpyxl import load_workbook
-            wb=load_workbook(path, read_only=True, data_only=False)
-            out=[]
-            for ws in wb.worksheets:
-                out.append(f"[SHEET] {ws.title}")
-                for row in ws.iter_rows(values_only=True):
-                    out.append("\t".join("" if v is None else str(v) for v in row))
-            return "\n".join(out)
-        if ext in {".txt",".md",".csv",".json",".html",".htm",".rtf"}:
-            return path.read_text(encoding="utf-8", errors="replace")
-    except Exception as e:
-        return f"[EXTRACTION_ERROR] {e}"
-    return ""
+        from app.adapters import SUPPORTED_FORMATS, UnsupportedFormat
+        from app.adapters import extract as adapter_extract
+        fmt = detect(path)
+        try:
+            return adapter_extract(path, fmt=fmt)
+        except UnsupportedFormat as uf:
+            return f"[UNSUPPORTED_FORMAT] {uf}"
+        except Exception as e:
+            return f"[EXTRACTION_ERROR] {e} (supported: {','.join(SUPPORTED_FORMATS)})"
+    except ImportError:
+        # Fallback to legacy inline logic if adapters package missing
+        ext = path.suffix.lower()
+        try:
+            if ext == ".pdf":
+                from pypdf import PdfReader
+                return "\n".join((p.extract_text() or "") for p in PdfReader(str(path)).pages)
+            if ext == ".docx":
+                from docx import Document
+                d=Document(str(path))
+                return "\n".join(p.text for p in d.paragraphs)
+            if ext == ".xlsx":
+                from openpyxl import load_workbook
+                wb=load_workbook(path, read_only=True, data_only=False)
+                out=[]
+                for ws in wb.worksheets:
+                    out.append(f"[SHEET] {ws.title}")
+                    for row in ws.iter_rows(values_only=True):
+                        out.append("\t".join("" if v is None else str(v) for v in row))
+                return "\n".join(out)
+            if ext in {".txt",".md",".csv",".json",".html",".htm",".rtf"}:
+                return path.read_text(encoding="utf-8", errors="replace")
+        except Exception as e:
+            return f"[EXTRACTION_ERROR] {e}"
+        return ""
 
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
-    return templates.TemplateResponse("landing.html", {"request": request})
+    # Support both old and new Starlette TemplateResponse signatures
+    try:
+        return templates.TemplateResponse(request, "landing.html", {"request": request})
+    except TypeError:
+        return templates.TemplateResponse("landing.html", {"request": request})
 
 @app.get("/app", response_class=HTMLResponse)
 async def panel(request: Request):
-    return templates.TemplateResponse("panel.html", {"request": request})
+    try:
+        return templates.TemplateResponse(request, "panel.html", {"request": request})
+    except TypeError:
+        return templates.TemplateResponse("panel.html", {"request": request})
 
 @app.get("/api/health")
 async def health():
