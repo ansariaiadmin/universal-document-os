@@ -1,0 +1,10 @@
+{
+  "job_id": "63700e1104ae43d29e8579328c185035",
+  "filename": "data.csv",
+  "detected_format": "CSV",
+  "operation": "analyze",
+  "target_format": "same",
+  "characters": 20,
+  "status": "ANALYZED",
+  "preview": "col1,col2\nval1,val2\n"
+}
