@@ -92,5 +92,3 @@ class MultiEngineOCR:
 
 # Singleton
 ocr = MultiEngineOCR()
-
-print("Multi-engine OCR loaded — 10/10 ceiling — Tesseract + PaddleOCR + EasyOCR + confidence + fallback")

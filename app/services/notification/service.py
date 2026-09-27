@@ -50,8 +50,12 @@ class NotificationService:
             try:
                 if ch==NotificationChannel.IN_APP:
                     if not self.in_app: results.append(NotificationResult(channel=ch,success=False,error="Disabled",at=at)); continue
-                    uid=payload.user_id or "system"; lst=inbox.get(uid,[]); lst.append(payload.model_dump() if hasattr(payload,'model_dump') else payload.__dict__ if hasattr(payload,'__dict__') else str(payload))
-                    if len(lst)>MAX_INBOX: lst=lst[-MAX_INBOX:]; inbox[uid]=lst; _save_inbox(inbox)
+                    uid=payload.user_id or "system"
+                    entry = payload.model_dump() if hasattr(payload,'model_dump') else payload.__dict__ if hasattr(payload,'__dict__') else str(payload)
+                    lst = inbox.setdefault(uid, [])
+                    lst.append(entry)
+                    if len(lst)>MAX_INBOX: del lst[:-MAX_INBOX]
+                    _save_inbox(inbox)
                     results.append(NotificationResult(channel=ch,success=True,message_id=f"inapp-{int(datetime.now().timestamp())}",at=at))
                 elif ch==NotificationChannel.TELEGRAM:
                     if not self.telegram_enabled or not self.telegram_token or not self.telegram_chat:

@@ -7,7 +7,10 @@ After: translation service with multiple providers + layout reconstruction + Gol
 from __future__ import annotations
 
 from typing import Dict, Any, List
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 
 class TranslationProvider:
     def __init__(self, name: str):
@@ -42,7 +45,7 @@ class LayoutReconstructor:
     def reconstruct(self, pages: List[Dict[str, Any]]) -> Dict[str, Any]:
         # In real: use layout parser (PaddleOCR layout, etc.) to detect headings, tables, images
         # For mock:
-        print(f"[layout] reconstruct {len(pages)} pages")
+        logger.debug("layout: reconstruct %d pages", len(pages))
         return {
             "pages": len(pages),
             "blocks": [
@@ -64,7 +67,7 @@ class GoldenBenchmark:
 
     def evaluate(self, extracted: Dict[str, Any], ground_truth: Dict[str, Any]) -> Dict[str, float]:
         # In real: compare extracted vs ground truth via metrics: precision, recall, F1, layout IoU, table accuracy
-        print(f"[benchmark] evaluate")
+        logger.debug("benchmark: evaluate")
         return {
             "text_precision": 0.92,
             "text_recall": 0.89,
@@ -105,4 +108,3 @@ class TranslationService:
 # Singleton
 translation_service = TranslationService()
 
-print("Translation + Layout + Golden Benchmark loaded — 10/10 ceiling — 8.0→10 product")

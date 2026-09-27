@@ -1,44 +1,37 @@
-## [v0.9.1] - 2026-09-24 - Non-Technical Auto Install + Auto Update Edition
+# Changelog
 
-### Added - نصب خودکار برای افراد غیر فنی
-- **install.sh**: نصب خودکار تمیز - چک Docker, ساخت .env با رمز تصادفی openssl, docker compose up --build -d, صبر 30s, سلامت چک, نمایش آدرس و رمز ورود
-- **update.sh**: آپدیت خودکار - بکاپ به backups/YYYYMMDD-HHMMSS/, git pull origin main, docker compose pull + up --build -d, health check, rollback hint
-- **start.sh, stop.sh, status.sh, logs.sh, backup.sh**: دستورات ساده روزانه
-- **install.bat, start.bat, stop.bat, status.bat, logs.bat, update.bat, backup.bat**: نسخه ویندوز برای افراد غیر فنی
-- **INSTALL.md**: راهنمای کامل فارسی نصب در 3 قدم (<5 دقیقه)
-- **docs/USER_GUIDE_FA.md**: آموزش کامل تمام بخش‌ها - داشبورد, تنظیمات .env, Docker چیست, بکاپ, عیب‌یابی, امنیت, ورژن‌ها
-- **docs/USER_GUIDE_EN.md**: Full English guide for non-technical
-- **README**: بخش جدید "برای افراد غیر فنی / For Non-Technical Users — نصب در 1 دقیقه!" با one-liner
+All notable changes to Universal Document OS are documented here.
+Versions follow SemVer; the single source of truth for the running version is `app/config.py` (`APP_VERSION`).
 
-### Fixed
-- Clean presentation: حذف cache artifacts, .env فقط .env.example
-- Non-technical UX: پیام‌های فارسی + انگلیسی، رنگی، راهنمای قدم به قدم
-
-### Docs
-- README badge+mermaid+quickstart+sample output + non-technical section
-- INSTALL.md + docs/USER_GUIDE_FA.md + docs/USER_GUIDE_EN.md
-
-# Changelog — universal-document-os
-
-## [0.9.0] - 2026-09-24
-
-### Added
-- 19 tests passing: upload/format/PDF/TXT/CSV/MD/audit, adapters registry, unsupported format clean
-- Adapters architecture: app/adapters/__init__.py Registry pattern @register(FMT), SUPPORTED_FORMATS, get_extractor, extract, UnsupportedFormat with clean message
-- PDF: pypdf, DOCX: python-docx, XLSX: openpyxl, PPTX: python-pptx if installed else UnsupportedFormat clean, ODT: odfpy + zipfile fallback content.xml, TXT/MD/CSV/JSON/HTML/RTF utf-8 reader, legacy DOC/PPT/XLS/ODS/ODP UnsupportedFormat with convert guidance
-- Landing fix: TemplateResponse supports both old and new Starlette signatures (fixes httpx test client)
-- Docker compose healthy: healthcheck curl /api/health
-- CI: ruff + pytest + build + docker
-- Docs: README badge+mermaid+quickstart+sample output, ROADMAP Done vs v2
-
-### Fixed
-- Jinja2 cache warning: templates cache disabled in dev, static files prod via StaticFiles mount
-- Static files prod: app.mount("/static", StaticFiles) with directory BASE/app/static
-- Landing page: supports both TemplateResponse signatures
+## [v3.2.4] - 2026-09-27 — Audit & Hardening (production-readiness)
 
 ### Security
-- Secret scan 0, .env.example minimal (PORT only, local-first)
-- No private key, local-first
+- **Path traversal fixed** in `/api/download/{name}`: downloads now resolve through `app/security.resolve_within()` — symlinks and `../` sequences can no longer escape `data/outputs/`.
+- **Filename sanitization** for uploads (`app/security.sanitize_filename`): directory components, traversal sequences, and hidden-file names (e.g. `.env`) are stripped; Persian characters preserved.
+- **Upload size limit** enforced while streaming (`MAX_UPLOAD_BYTES`, default 25 MB) → clean `413` response instead of unbounded disk write.
 
-## [0.8.0] - 2026-09-07
-- Previous release with 19 tests
+### Fixes
+- Notification inbox: first in-app message for a *new* user was silently lost (`inbox.get(uid, [])` throwaway list) — now uses `setdefault` and always persists.
+- XLSX adapter: `data_only=True` so exported text contains cell values, not raw formulas.
+- Removed import-time side-effect `print(...)` banners from `app/ocr/multi_engine.py` and `app/translation/service.py` (now logging).
+- Version consistency: `1.0.0` vs `v3.2.3` vs `v0.9.3` mismatch resolved — one `APP_VERSION` in `app/config.py`, used by FastAPI app + `/api/health`.
+- `pytest==8.3.4` pin conflicted with CI's `pip install pytest` (latest) — aligned to `8.4.1`.
+
+### Architecture / hygiene
+- New `app/config.py`: central, env-driven paths & limits (`DATA_DIR`, `MAX_UPLOAD_BYTES`, `PREVIEW_CHARS`).
+- Dead legacy fallback extraction code removed from `main.extract_text` (adapters package is required, non-optional).
+- Missing `__init__.py` files added (`app`, `app.lib`, `app.ocr`, `app.services`, `app.services.notification`, `app.translation`) — packages were only working via namespace-package luck.
+- API docs served at `/api/docs` (was default `/docs`).
+
+### Repo hygiene
+- **Untracked runtime data**: 49 files under `data/` (uploads, outputs, workrooms, audit.jsonl) were committed to git — removed from index, added to `.gitignore`. Local copies kept on disk.
+- Tests are now isolated: new `tests/conftest.py` redirects all data paths to a temp dir per test (previously every test run polluted the repo's real `data/`).
+
+### Tests
+- 19 → **29 tests** (new `tests/test_security.py`: traversal, sanitization, 413, workroom isolation, version consistency, notification persistence regression).
+
+## [v3.2.3] - earlier
+- PWA + logger + persist fixes (see git history).
+
+## [v0.9.x] - initial local-install editions
+- Auto install/update scripts, user guides (FA/EN).

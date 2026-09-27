@@ -53,7 +53,8 @@ def extract_xlsx(path: pathlib.Path) -> str:
     except ImportError as e:
         raise UnsupportedFormat("XLSX", f"openpyxl missing: {e}")
     try:
-        wb = load_workbook(path, read_only=True, data_only=False)
+        # data_only=True -> cell values instead of raw formulas in the output text
+        wb = load_workbook(path, read_only=True, data_only=True)
         out = []
         for ws in wb.worksheets:
             out.append(f"[SHEET] {ws.title}")

@@ -9,7 +9,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from pathlib import Path
 
 from app.adapters import extract as adapter_extract
-from app.main import BASE, audit, detect, extract_text
+from app.main import audit, detect, extract_text
 
 
 def test_extract_txt():
@@ -55,11 +55,9 @@ def test_extract_pdf_blank_or_error():
             txt = extract_text(p)
             assert isinstance(txt, str)
 
-def test_audit_log():
-    # Ensure audit creates jsonl entry
-    audit_file = BASE / "data/audit.jsonl"
-    # Clean up old if exists for test isolation? Don't delete, just check appends
-    before = audit_file.exists()  # noqa: F841 and audit_file.stat().st_size or 0
+def test_audit_log(data_tree):
+    # Ensure audit creates jsonl entry (isolated temp dir via conftest)
+    audit_file = data_tree["audit"]
     audit("TEST_EVENT", job_id="test123", filename="test.txt")
     assert audit_file.exists()
     content = audit_file.read_text(encoding="utf-8", errors="replace")

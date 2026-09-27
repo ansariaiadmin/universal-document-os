@@ -8,3 +8,11 @@ build/
 __pycache__/
 .venv/
 venv/
+
+# runtime data — never commit user uploads/outputs/workrooms
+data/uploads/
+data/outputs/
+data/workrooms/
+data/*.jsonl
+runtime/
+*.pid

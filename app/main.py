@@ -1,130 +1,159 @@
+"""Universal Document OS — FastAPI application entry point."""
+from __future__ import annotations
 
 import json
+import logging
 import mimetypes
-import shutil
+
 import time
 import uuid
-from pathlib import Path
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-BASE = Path(__file__).resolve().parent.parent
-UPLOADS = BASE/"data/uploads"
-OUTPUTS = BASE/"data/outputs"
-WORKROOMS = BASE/"data/workrooms"
-for p in (UPLOADS, OUTPUTS, WORKROOMS): p.mkdir(parents=True, exist_ok=True)
+from app.config import (
+    APP_NAME,
+    APP_VERSION,
+    AUDIT_FILE,
+    BASE,
+    MAX_UPLOAD_BYTES,
+    OUTPUTS,
+    PREVIEW_CHARS,
+    UPLOADS,
+    WORKROOMS,
+    ensure_dirs,
+)
+from app.security import resolve_within, sanitize_filename
 
-app = FastAPI(title="Universal Document OS", version="1.0.0")
-app.mount("/static", StaticFiles(directory=BASE/"app/static"), name="static")
-templates = Jinja2Templates(directory=BASE/"app/templates")
+logger = logging.getLogger("udo")
 
-def audit(event, **kw):
+ensure_dirs()
+
+app = FastAPI(
+    title=APP_NAME,
+    version=APP_VERSION,
+    docs_url="/api/docs",
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+)
+app.mount("/static", StaticFiles(directory=BASE / "app/static"), name="static")
+templates = Jinja2Templates(directory=BASE / "app/templates")
+
+
+def audit(event: str, **kw) -> None:
+    """Append a structured audit record (single atomic write)."""
     rec = {"ts": time.time(), "event": event, **kw}
-    with open(BASE/"data/audit.jsonl","a",encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False)+"\n")
+    try:
+        with open(AUDIT_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError as e:  # never let auditing crash the request path
+        logger.warning("audit write failed: %s", e)
 
-def detect(path):
+
+def detect(path) -> str:
     ext = path.suffix.lower()
     mapping = {
-        ".pdf":"PDF", ".docx":"DOCX", ".doc":"DOC", ".xlsx":"XLSX", ".xls":"XLS",
-        ".pptx":"PPTX", ".ppt":"PPT", ".odt":"ODT", ".ods":"ODS", ".odp":"ODP",
-        ".rtf":"RTF", ".csv":"CSV", ".txt":"TXT", ".md":"MARKDOWN", ".html":"HTML",
-        ".htm":"HTML", ".json":"JSON"
+        ".pdf": "PDF", ".docx": "DOCX", ".doc": "DOC", ".xlsx": "XLSX", ".xls": "XLS",
+        ".pptx": "PPTX", ".ppt": "PPT", ".odt": "ODT", ".ods": "ODS", ".odp": "ODP",
+        ".rtf": "RTF", ".csv": "CSV", ".txt": "TXT", ".md": "MARKDOWN", ".html": "HTML",
+        ".htm": "HTML", ".json": "JSON",
     }
     return mapping.get(ext, mimetypes.guess_type(path.name)[0] or "UNKNOWN")
 
-def extract_text(path):
+
+def extract_text(path) -> str:
     """Dispatch to adapters package with clean UnsupportedFormat handling."""
+    from app.adapters import SUPPORTED_FORMATS, UnsupportedFormat
+    from app.adapters import extract as adapter_extract
+
+    fmt = detect(path)
     try:
-        from app.adapters import SUPPORTED_FORMATS, UnsupportedFormat
-        from app.adapters import extract as adapter_extract
-        fmt = detect(path)
-        try:
-            return adapter_extract(path, fmt=fmt)
-        except UnsupportedFormat as uf:
-            return f"[UNSUPPORTED_FORMAT] {uf}"
-        except Exception as e:
-            return f"[EXTRACTION_ERROR] {e} (supported: {','.join(SUPPORTED_FORMATS)})"
-    except ImportError:
-        # Fallback to legacy inline logic if adapters package missing
-        ext = path.suffix.lower()
-        try:
-            if ext == ".pdf":
-                from pypdf import PdfReader
-                return "\n".join((p.extract_text() or "") for p in PdfReader(str(path)).pages)
-            if ext == ".docx":
-                from docx import Document
-                d=Document(str(path))
-                return "\n".join(p.text for p in d.paragraphs)
-            if ext == ".xlsx":
-                from openpyxl import load_workbook
-                wb=load_workbook(path, read_only=True, data_only=False)
-                out=[]
-                for ws in wb.worksheets:
-                    out.append(f"[SHEET] {ws.title}")
-                    for row in ws.iter_rows(values_only=True):
-                        out.append("\t".join("" if v is None else str(v) for v in row))
-                return "\n".join(out)
-            if ext in {".txt",".md",".csv",".json",".html",".htm",".rtf"}:
-                return path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
-            return f"[EXTRACTION_ERROR] {e}"
-        return ""
+        return adapter_extract(path, fmt=fmt)
+    except UnsupportedFormat as uf:
+        return f"[UNSUPPORTED_FORMAT] {uf}"
+    except Exception as e:
+        return f"[EXTRACTION_ERROR] {e} (supported: {','.join(SUPPORTED_FORMATS)})"
+
 
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
-    # Support both old and new Starlette TemplateResponse signatures
-    try:
-        return templates.TemplateResponse(request, "landing.html", {"request": request})
-    except TypeError:
-        return templates.TemplateResponse("landing.html", {"request": request})
+    return templates.TemplateResponse(request, "landing.html")
+
 
 @app.get("/app", response_class=HTMLResponse)
 async def panel(request: Request):
-    try:
-        return templates.TemplateResponse(request, "panel.html", {"request": request})
-    except TypeError:
-        return templates.TemplateResponse("panel.html", {"request": request})
+    return templates.TemplateResponse(request, "panel.html")
+
 
 @app.get("/api/health")
 async def health():
-    return {"status":"ok","service":"Universal Document OS","version":"1.0.0"}
+    return {"status": "ok", "service": APP_NAME, "version": APP_VERSION}
+
 
 @app.post("/api/process")
-async def process(file: UploadFile=File(...), operation: str=Form("analyze"), target_format: str=Form("same")):
+async def process(
+    file: UploadFile = File(...),
+    operation: str = Form("analyze"),
+    target_format: str = Form("same"),
+):
     job = uuid.uuid4().hex
-    safe = Path(file.filename or "upload.bin").name
-    src = UPLOADS/f"{job}_{safe}"
+    safe = sanitize_filename(file.filename)
+    src = UPLOADS / f"{job}_{safe}"
+
+    size = 0
     with src.open("wb") as out:
-        shutil.copyfileobj(file.file, out)
+        while chunk := await file.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_UPLOAD_BYTES:
+                out.close()
+                src.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"file too large (limit {MAX_UPLOAD_BYTES} bytes)",
+                )
+            out.write(chunk)
+
     fmt = detect(src)
     text = extract_text(src)
     result = {
-        "job_id":job, "filename":safe, "detected_format":fmt,
-        "operation":operation, "target_format":target_format,
-        "characters":len(text), "status":"ANALYZED",
-        "preview":text[:5000]
+        "job_id": job,
+        "filename": safe,
+        "detected_format": fmt,
+        "operation": operation,
+        "target_format": target_format,
+        "size_bytes": size,
+        "characters": len(text),
+        "status": "ANALYZED",
+        "preview": text[:PREVIEW_CHARS],
     }
-    (WORKROOMS/f"{job}.json").write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf-8")
-    audit("ANALYZE", job_id=job, filename=safe, format=fmt, operation=operation)
+    (WORKROOMS / f"{job}.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    audit("ANALYZE", job_id=job, filename=safe, format=fmt, operation=operation, size=size)
+
     # For text-like formats, produce a real downloadable output.
-    if operation in {"copy","export_text"} and text and target_format in {"txt","md"}:
-        outp=OUTPUTS/f"{job}.{target_format}"
-        outp.write_text(text,encoding="utf-8")
-        result["download"]=f"/api/download/{outp.name}"
-        result["status"]="READY"
+    if operation in {"copy", "export_text"} and text and target_format in {"txt", "md"}:
+        outp = OUTPUTS / f"{job}.{target_format}"
+        outp.write_text(text, encoding="utf-8")
+        result["download"] = f"/api/download/{outp.name}"
+        result["status"] = "READY"
     return JSONResponse(result)
+
 
 @app.get("/api/download/{name}")
 async def download(name: str):
-    p=OUTPUTS/name
-    if not p.exists() or p.parent != OUTPUTS:
-        return JSONResponse({"error":"not found"},status_code=404)
+    p = resolve_within(OUTPUTS, sanitize_filename(name))
+    if p is None:
+        raise HTTPException(status_code=404, detail="not found")
     return FileResponse(p, filename=p.name)
+
 
 @app.get("/api/status")
 async def status():
-    return {"uploads":len(list(UPLOADS.iterdir())),"outputs":len(list(OUTPUTS.iterdir())),"workrooms":len(list(WORKROOMS.iterdir()))}
+    return {
+        "uploads": sum(1 for _ in UPLOADS.iterdir()),
+        "outputs": sum(1 for _ in OUTPUTS.iterdir()),
+        "workrooms": sum(1 for _ in WORKROOMS.iterdir()),
+    }

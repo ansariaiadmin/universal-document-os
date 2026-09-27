@@ -6,7 +6,7 @@ warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 err() { echo -e "${RED}❌ $1${NC}"; }
 info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
 
-echo -e "${BOLD}${BLUE}🧪 Smoke Test — universal-document-os — v3.1.0 — تاریکی روشن شد${NC}"
+echo -e "${BOLD}${BLUE}🧪 Smoke Test — universal-document-os${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -14,8 +14,8 @@ echo ""
 source .env 2>/dev/null || true
 
 echo -e "${BOLD}[1/4] ❤️ Health${NC}"
-curl -sf http://localhost:3000 >/dev/null 2>&1 && ok "http://localhost:3000 — اوکی" || warn "http://localhost:3000 — fail"
-curl -sf http://localhost:8000 >/dev/null 2>&1 && ok "http://localhost:8000 — اوکی" || warn "http://localhost:8000 — fail"
+curl -sf http://localhost:8000/api/health >/dev/null 2>&1 && ok "http://localhost:8000/api/health — اوکی" || warn "http://localhost:8000/api/health — fail (is the app running?)"
+curl -sf http://localhost:8000/app >/dev/null 2>&1 && ok "http://localhost:8000/app (Panel) — اوکی" || warn "http://localhost:8000/app — fail"
 echo ""
 
 echo -e "${BOLD}[2/4] 🤖 AI Provider — با هزینه — تاریکی روشن شد${NC}"
