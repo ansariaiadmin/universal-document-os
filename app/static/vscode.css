@@ -249,6 +249,46 @@ body.vscode {
 }
 @keyframes rot { to { transform: rotate(360deg); } }
 
+/* ---------- Smart dashboard (v4.3) ---------- */
+.vsc-dashboard .dash-body {
+  flex: 1; overflow: auto;
+  padding: 14px 18px 40px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.dash-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;
+}
+.dash-card {
+  background: var(--vscode-sidebar); border: 1px solid var(--vscode-border);
+  border-radius: 6px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.dash-card small { color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .6px; }
+.dash-card b { color: var(--text-bright); font-size: 14px; font-weight: 600; }
+.dash-card.ok b { color: #89d185; }
+.dash-card.warn b { color: #dcdcaa; }
+.dash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .dash-row { grid-template-columns: 1fr; } }
+.dash-block {
+  background: var(--vscode-sidebar); border: 1px solid var(--vscode-border);
+  border-radius: 6px; padding: 12px 14px;
+}
+.dash-block h3 { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.dash-block table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dash-block td { padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.05); color: var(--text-primary); }
+.dash-block td.ok { color: #89d185; }
+.dash-block td.no { color: #f48771; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  background: #2d2d2d; border: 1px solid var(--vscode-border); color: var(--text-primary);
+  border-radius: 10px; padding: 2px 10px; font-size: 11.5px;
+}
+.dash-note {
+  background: rgba(0,122,204,.08); border-inline-start: 3px solid var(--vscode-statusbar);
+  border-radius: 2px; padding: 10px 12px; font-size: 12px; color: var(--text-primary);
+  line-height: 1.9;
+}
+
 /* RTL friendliness: keep code pane LTR, chrome follows dir attr */
 body[dir="rtl"] .vsc-tree-item { padding: 3px 24px 3px 16px; }
 body[dir="rtl"] .notice { border-left: 0; border-right: 3px solid var(--vscode-statusbar); }

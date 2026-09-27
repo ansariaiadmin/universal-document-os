@@ -1,6 +1,6 @@
 # Universal Document OS — User Guide (English)
 
-**Version:** v3.2.5 · **Audience:** end users of the web panel (no technical background required)
+**Version:** v4.2.0 · **Audience:** end users of the web panel (no technical background required)
 **Install first?** See [INSTALL.md](../INSTALL.md). This guide assumes the app is already running at <http://localhost:8000>.
 
 ---
@@ -9,12 +9,14 @@
 
 You put a document in, you get its text out — on your own computer. Concretely it can:
 
-- **Read** PDF, Word (DOCX), Excel (XLSX), PowerPoint (PPTX), OpenDocument Text (ODT), plain text, Markdown, CSV, JSON, HTML and RTF files.
-- **Show** what format was detected, how much text was found, and a preview of that text.
-- **Export** the extracted text as a `.txt` or `.md` file you can download.
-- **Remember** every job: each upload creates a record (a "workroom") plus an entry in an audit log, so nothing disappears silently.
+- **Read** PDF, Word (DOCX), Excel (XLSX), PowerPoint (PPTX), OpenDocument (ODT/ODS/ODP), plain text, Markdown, CSV, JSON, HTML and RTF files.
+- **Read images** (JPG/PNG/WEBP/TIFF) with **real OCR** — the Docker image ships Tesseract with English + Persian.
+- **Show** the detected format, how much text was found, a preview, and smart analysis (language, direction, document category).
+- **Export** the extracted text as `.txt`/`.md`, or rendered `.html` from Markdown sources.
+- **Remember** every job: each upload creates a workroom record, a row in the SQLite job store, and an audit-log entry.
+- **Show a live Smart Dashboard** (panel → Dashboard tab): engine availability, counters, storage and security posture — all measured, nothing invented.
 
-What it does **not** do yet (honest list): OCR for scanned/image PDFs, translation through the UI, login/accounts. Those are planned — see [ROADMAP.md](../ROADMAP.md).
+What it does **not** do yet (honest list): translation through the UI, automatic notifications, login/accounts. Those are planned — see [ROADMAP.md](../ROADMAP.md).
 
 ## 2. Opening the app
 
@@ -56,9 +58,10 @@ The app never crashes on a bad file — it tells you what happened instead:
 
 | Message you see | What it means | What to do |
 |---|---|---|
-| `[UNSUPPORTED_FORMAT] ... convert to DOCX` | Legacy Office file (DOC/XLS/PPT/ODS/ODP) | Re-save as DOCX/XLSX/PPTX and upload again |
-| `[EXTRACTION_ERROR] ...` | File is corrupt, password-protected, or a helper library is missing | Remove any password / re-save the file; ask your admin to install optional libraries |
-| Empty text from a PDF | It's a *scanned* (image-based) PDF — no text layer | OCR support is coming (roadmap); meanwhile try Adobe/Preview "export as text" if available |
+| `[UNSUPPORTED_FORMAT] ...` | Legacy Office file (XLS/PPT), or missing helper (`antiword` for DOC), or an image without an installed OCR engine | Re-save as DOCX/XLSX/PPTX; install the named tool; for OCR run the Docker image or install tesseract |
+| `[EXTRACTION_ERROR] ...` | File is corrupt, password-protected | Remove any password / re-save the file |
+| `content rejected (415)` | Content does not match the extension (e.g. an exe named .pdf) or an archive bomb | Send the genuine file |
+| Empty text from a PDF | It's a *scanned* (image-based) PDF — the text layer is empty | OCR of rendered PDF pages is planned (roadmap); extract the page images and upload them instead |
 | "file too large" | Upload above the 25 MB limit | Split/compress the file, or raise `MAX_UPLOAD_BYTES` in `.env` |
 
 ## 5. Where your data lives
@@ -67,12 +70,13 @@ Everything stays inside the project folder:
 
 ```
 data/uploads/    ← your original files (named by job id)
-data/outputs/    ← exported .txt/.md files
+data/outputs/    ← exported .txt/.md/.html files
 data/workrooms/  ← one JSON record per job
 data/audit.jsonl ← append-only history of all jobs
+data/jobs.db     ← durable SQLite job store
 ```
 
-Deleting a job's files removes it completely; backups copy this whole folder (`./backup.sh`). Nothing is sent to the internet during normal use.
+Deleting a job's files removes it completely; `./backup.sh` archives this whole folder (with secret values redacted from the settings snapshot). Nothing is sent to the internet during normal use.
 
 ## 6. Keyboard-free daily routine
 
@@ -88,7 +92,7 @@ Windows: double-click the matching `.bat` files.
 
 ## 7. FAQ
 
-**Can I use it from my phone?** The panel is responsive; open `http://<your-computer-ip>:8000/app` on the same Wi-Fi (and keep in mind there's no login — trusted networks only).
+**Can I use it from my phone?** The panel is responsive and PWA-installable (Add to Home screen); open `http://<your-computer-ip>:8000/app` on the same Wi-Fi (and keep in mind there's no login unless the admin sets `UDO_API_KEYS` — trusted networks only).
 
 **Is there a limit on file size?** Yes, 25 MB by default, configurable via `MAX_UPLOAD_BYTES`.
 

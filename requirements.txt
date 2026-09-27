@@ -7,11 +7,17 @@ python-docx==1.2.0
 openpyxl==3.1.5
 # Optional adapters — if missing, clean UnsupportedFormat is returned
 python-pptx==1.0.2
-odfpy==1.4.1
-# Test
+# NOTE: ODT/ODS/ODP are parsed with the stdlib (zipfile + ElementTree);
+# the former odfpy dependency was dead code and was removed.
+pydantic>=2.0
+# Runtime conversion engine (md -> html)
+markdown>=3.6
+# Test / CI (pinned so CI and local runs use the same versions)
 pytest==8.4.1
 httpx==0.28.1
+ruff==0.14.5
+# OCR (image extraction). The tesseract *binary* is installed in the Dockerfile;
+# without it these import cleanly and the engine reports skipped=True (honest).
 pytesseract==0.3.13
 pillow==11.2.1
 # rapidocr-onnxruntime  # optional zero-binary fallback OCR — uncomment to enable
-markdown>=3.6

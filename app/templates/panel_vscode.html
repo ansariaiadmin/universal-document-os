@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>UDO — Control Panel</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="theme-color" content="#0f172a">
 <link rel="stylesheet" href="/static/vscode.css">
 </head>
 <body class="vscode" dir="rtl">
@@ -20,6 +24,10 @@
   <button class="active" title="Explorer" data-view="explorer">
     <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 12l3-6 3 6H7zm4.5 1L14 19l-2 .5-2.5-5.5 2-.5z"/></svg>
     Explorer
+  </button>
+  <button title="Smart Dashboard" id="dashTab">
+    <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    Dashboard
   </button>
   <button title="Search" data-view="search">
     <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
@@ -70,8 +78,47 @@
   </section>
 </aside>
 
+<!-- ===== Smart dashboard (v4.3) — live data from /api/dashboard ===== -->
+<section class="vsc-editor vsc-dashboard" id="dashboard" hidden>
+  <div class="vsc-tabs">
+    <div class="vsc-tab active"><span class="dot"></span>Smart Dashboard — تابلو هوشمند</div>
+  </div>
+  <div class="vsc-breadcrumb">universal-document-os › dashboard › live</div>
+  <div class="dash-body">
+    <div class="dash-cards">
+      <div class="dash-card" id="dVer"><small>version</small><b>—</b></div>
+      <div class="dash-card" id="dUp"><small>uptime</small><b>—</b></div>
+      <div class="dash-card" id="dJobs"><small>jobs (total/done)</small><b>—</b></div>
+      <div class="dash-card" id="dOcr"><small>OCR engines</small><b>—</b></div>
+      <div class="dash-card" id="dAuth"><small>auth</small><b>—</b></div>
+      <div class="dash-card" id="dRl"><small>rate limit</small><b>—</b></div>
+    </div>
+    <div class="dash-row">
+      <div class="dash-block">
+        <h3>📦 Storage</h3>
+        <table id="dStorage"></table>
+      </div>
+      <div class="dash-block">
+        <h3>🔁 Conversions (real gate)</h3>
+        <table id="dConv"></table>
+      </div>
+    </div>
+    <div class="dash-row">
+      <div class="dash-block">
+        <h3>🧩 Extractable formats</h3>
+        <div id="dFormats" class="chips"></div>
+      </div>
+      <div class="dash-block">
+        <h3>🧠 Intelligence categories</h3>
+        <div id="dCats" class="chips"></div>
+      </div>
+    </div>
+    <div class="dash-note" id="dNote"></div>
+  </div>
+</section>
+
 <!-- ===== Editor ===== -->
-<main class="vsc-editor">
+<main class="vsc-editor" id="editorMain">
   <div class="vsc-tabs">
     <div class="vsc-tab active"><span class="dot"></span>output: udo.log</div>
     <div class="vsc-tab">README.md</div>
@@ -124,6 +171,88 @@ function render(text){
   gut.innerHTML=Array.from({length:n},(_,i)=>i+1).join('<br>');
 }
 
+
+// ---- v4.3 — Smart Dashboard tab (live facts from /api/dashboard) ----
+const dash=document.querySelector('#dashboard'), dashTab=document.querySelector('#dashTab');
+const editorMain=document.querySelector('#editorMain');
+const fmtSize=n=>n>1048576?(n/1048576).toFixed(1)+' MB':n>1024?(n/1024).toFixed(1)+' KB':n+' B';
+const fmtUp=s=>s>3600?(s/3600).toFixed(1)+' h':s>60?(s/60).toFixed(1)+' min':s+' s';
+function dashCard(id,val,cls){const el=document.querySelector(id);el.querySelector('b').textContent=val;if(cls)el.className='dash-card '+cls;}
+async function loadDash(){
+  try{
+    const r=await api('/api/dashboard');const d=await r.json();
+    dashCard('#dVer',d.version);
+    dashCard('#dUp',fmtUp(d.uptime_seconds||0));
+    dashCard('#dJobs',(d.jobs?.total??0)+' / '+(d.jobs?.DONE??0));
+    const eng=Object.entries(d.capabilities?.ocr_engines||{}).map(([k,v])=>k+(v?' ✓':' ✗')).join(' · ')||'none';
+    dashCard('#dOcr',eng,d.capabilities?.ocr_ready?'ok':'warn');
+    dashCard('#dAuth',d.security?.auth_enabled?'ON':'off (local)',d.security?.auth_enabled?'ok':'warn');
+    const rl=d.security?.rate_limit_per_min||0;dashCard('#dRl',rl?rl+'/min':'off',rl?'ok':'warn');
+    const st=d.storage||{};
+    document.querySelector('#dStorage').innerHTML=['uploads','outputs','workrooms'].map(k=>
+      `<tr><td>${k}</td><td>${st[k]??0}</td><td>${fmtSize(st[k+'_bytes']||0)}</td></tr>`).join('')+
+      `<tr><td>audit lines</td><td colspan="2">${st.audit_lines??0}</td></tr>`;
+    document.querySelector('#dConv').innerHTML=(d.capabilities?.conversions||[]).map(c=>
+      `<tr><td>${c.from} → ${c.to}</td><td class="${c.supported?'ok':'no'}">${c.supported?'✓':'✗'}</td></tr>`).join('');
+    document.querySelector('#dFormats').innerHTML=(d.pipeline?.formats_extractable||[]).map(f=>`<span class="chip">${f}</span>`).join('');
+    document.querySelector('#dCats').innerHTML=(d.capabilities?.intelligence_categories||[]).map(c=>`<span class="chip">${c}</span>`).join('');
+    const notes=[];
+    if(!d.capabilities?.ocr_ready)notes.push('OCR engine usable نیست — در نصب داکری tesseract نصب است؛ روی سیستم لوکال باید خودتان نصب کنید.');
+    if(!d.security?.auth_enabled)notes.push('احراز هویت خاموش است — برای شبکه‌های غیرمطمئن UDO_API_KEYS را در .env ست کنید.');
+    if(!d.security?.rate_limit_per_min)notes.push('Rate limit خاموش است — RATE_LIMIT_PER_MIN در .env آن را روشن می‌کند.');
+    document.querySelector('#dNote').innerHTML=notes.length?'💡 '+notes.join('<br>💡 '):'همه‌چیز سبز است ✅';
+  }catch(e){
+    document.querySelector('#dNote').textContent='خطا در خواندن /api/dashboard: '+e.message;
+  }
+}
+dashTab.onclick=()=>{
+  dash.hidden=!dash.hidden;editorMain.hidden=!editorMain.hidden;
+  dashTab.classList.toggle('active',!dash.hidden);
+  document.querySelectorAll('.vsc-activitybar button:not(#dashTab)').forEach(b=>b.classList.remove('active'));
+  if(!dash.hidden)loadDash();
+};
+setInterval(()=>{if(!dash.hidden)loadDash();},10000);
+
+// ---- v4.3 — Smart Dashboard tab (live facts from /api/dashboard) ----
+const dash=document.querySelector('#dashboard'), dashTab=document.querySelector('#dashTab');
+const editorMain=document.querySelector('#editorMain');
+const fmtSize=n=>n>1048576?(n/1048576).toFixed(1)+' MB':n>1024?(n/1024).toFixed(1)+' KB':n+' B';
+const fmtUp=s=>s>3600?(s/3600).toFixed(1)+' h':s>60?(s/60).toFixed(1)+' min':s+' s';
+function dashCard(id,val,cls){const el=document.querySelector(id);el.querySelector('b').textContent=val;if(cls)el.className='dash-card '+cls;}
+async function loadDash(){
+  try{
+    const r=await api('/api/dashboard');const d=await r.json();
+    dashCard('#dVer',d.version);
+    dashCard('#dUp',fmtUp(d.uptime_seconds||0));
+    dashCard('#dJobs',(d.jobs&&d.jobs.total!=null?d.jobs.total:0)+' / '+(d.jobs&&d.jobs.DONE!=null?d.jobs.DONE:0));
+    const eng=Object.entries((d.capabilities&&d.capabilities.ocr_engines)||{}).map(([k,v])=>k+(v?' ✓':' ✗')).join(' · ')||'none';
+    dashCard('#dOcr',eng,d.capabilities&&d.capabilities.ocr_ready?'ok':'warn');
+    dashCard('#dAuth',d.security&&d.security.auth_enabled?'ON':'off (local)',d.security&&d.security.auth_enabled?'ok':'warn');
+    const rl=(d.security&&d.security.rate_limit_per_min)||0;dashCard('#dRl',rl?rl+'/min':'off',rl?'ok':'warn');
+    const st=d.storage||{};
+    document.querySelector('#dStorage').innerHTML=['uploads','outputs','workrooms'].map(k=>
+      `<tr><td>${k}</td><td>${st[k]!=null?st[k]:0}</td><td>${fmtSize(st[k+'_bytes']||0)}</td></tr>`).join('')+
+      `<tr><td>audit lines</td><td colspan="2">${st.audit_lines!=null?st.audit_lines:0}</td></tr>`;
+    document.querySelector('#dConv').innerHTML=((d.capabilities&&d.capabilities.conversions)||[]).map(c=>
+      `<tr><td>${c.from} → ${c.to}</td><td class="${c.supported?'ok':'no'}">${c.supported?'✓':'✗'}</td></tr>`).join('');
+    document.querySelector('#dFormats').innerHTML=((d.pipeline&&d.pipeline.formats_extractable)||[]).map(f=>`<span class="chip">${f}</span>`).join('');
+    document.querySelector('#dCats').innerHTML=((d.capabilities&&d.capabilities.intelligence_categories)||[]).map(c=>`<span class="chip">${c}</span>`).join('');
+    const notes=[];
+    if(!(d.capabilities&&d.capabilities.ocr_ready))notes.push('OCR engine در دسترس نیست — در ایمیج داکر tesseract نصب است؛ اجرای لوکال باید خودتان نصب کنید.');
+    if(!(d.security&&d.security.auth_enabled))notes.push('احراز هویت خاموش است — برای شبکه‌ی غیرمطمئن UDO_API_KEYS را در .env ست کنید.');
+    if(!((d.security&&d.security.rate_limit_per_min)>0))notes.push('Rate limit خاموش است — RATE_LIMIT_PER_MIN در .env آن را روشن می‌کند.');
+    document.querySelector('#dNote').innerHTML=notes.length?('💡 '+notes.join('<br>💡 ')):'همه‌چیز سبز است ✅';
+  }catch(e){
+    document.querySelector('#dNote').textContent='خطا در خواندن /api/dashboard: '+e.message;
+  }
+}
+dashTab.onclick=()=>{
+  dash.hidden=!dash.hidden;editorMain.hidden=!editorMain.hidden;
+  dashTab.classList.toggle('active',!dash.hidden);
+  document.querySelectorAll('.vsc-activitybar button:not(#dashTab)').forEach(b=>b.classList.remove('active'));
+  if(!dash.hidden)loadDash();
+};
+setInterval(()=>{if(!dash.hidden)loadDash();},10000);
 
 // v4.0 — API key support (X-API-Key). Key is asked once and kept in sessionStorage.
 const stI=document.querySelector('#st-intel');
@@ -188,6 +317,9 @@ async function loadJobs(){
   }catch(e){}
 }
 loadJobs();
+
+// v4.3 — register the service worker (real PWA install support)
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').catch(()=>{});});}
 </script>
 </body>
 </html>

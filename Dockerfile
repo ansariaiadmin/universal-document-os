@@ -5,7 +5,9 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 FROM python:3.12-slim AS runner
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+# curl for the healthcheck; tesseract + fas traineddata so the OCR engine is
+# real out-of-the-box in the official image (langs configurable via OCR_LANGS).
+RUN apt-get update && apt-get install -y --no-install-recommends curl tesseract-ocr tesseract-ocr-fas tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 1001 appgroup \
     && adduser --system --uid 1001 --gid 1001 --home /app appuser \

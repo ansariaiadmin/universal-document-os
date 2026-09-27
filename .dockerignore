@@ -1,0 +1,17 @@
+# Private runtime data must never be baked into the image (privacy).
+data/
+backups/
+runtime/
+logs/
+.venv/
+.git/
+.gitignore
+.env
+.env.*
+*.key
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+tests/
+docs/SETUP-WEB-WIZARD.html

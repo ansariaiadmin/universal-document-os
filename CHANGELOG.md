@@ -3,6 +3,27 @@
 All notable changes to Universal Document OS are documented here.
 Versions follow SemVer; the single source of truth for the running version is `app/config.py` (`APP_VERSION`).
 
+## [4.2.0] — follow-up (2026-09-27) — Honesty audit fixes & Smart Dashboard
+
+Found by a line-by-line audit against the actual code. Every fix below is covered by a test.
+
+### Fixed (claims that were false, now true or removed)
+- **PWA is real now**: `/manifest.webmanifest` and `/sw.js` are served by the app, icons `/icon-192.png` and `/icon-512.png` are real generated PNGs (Pillow), the panel/landing link the manifest and register the service worker. Previously the manifest referenced icons that did not exist and was served by nothing.
+- **OCR is real in the official image**: the Dockerfile now installs `tesseract-ocr` + `tesseract-ocr-fas` + `tesseract-ocr-eng` (previously the binary was never installed, so OCR silently never worked in Docker).
+- **OCR availability probe fixed**: `MultiEngineOCR.health()` previously inferred availability from extracting a nonexistent file (always wrong); now `tesseract_engine.engine_available()` checks the Python deps and the actual binary version.
+- **Arabic text is no longer tagged Persian**: the Persian-unique-letter set incorrectly included `ه`; it is now explicit Persian codepoints (پ چ ژ گ ک ی). Regression tests cover pure-Arabic → `ar` and Persian → `fa`.
+- **API-key comparison is timing-safe** (`hmac.compare_digest` in `app/auth.py::key_matches`).
+- **`backup.sh` actually backs up all of `data/`** (uploads, outputs, workrooms, audit.jsonl, jobs.db) instead of only three files while claiming a full backup; secret values are redacted from the settings snapshot; optional passphrase encryption uses `openssl -pbkdf2` (and the key is no longer stored next to the archive).
+- **`docker-compose.yml` no longer overrides `APP_VERSION` to `3.2.6`** (conflicted with `/api/health`), the dead `docs/DEPLOYMENT.md` reference is gone, and the port mapping honors `$PORT`.
+- **`install.sh` / `status.sh` / `update.sh` / `install.bat` / `status.bat` / `backup.bat` rewritten for THIS repo** — removed dead blocks copied from other projects (Nobitex/Zarinpal/kill-switch conditionals that compared the project name to other names, Postgres/Redis/NextAuth env writes never read by any code, references to a nonexistent `/admin/settings` panel).
+- **`requirements.txt`: removed the unused `odfpy` pin** (ODT/ODS/ODP are parsed with the stdlib) and added the missing runtime dep `pydantic`, the runtime `markdown` note, and CI pins (`ruff==0.14.5`).
+- **`.gitignore` covers all of `data/`** (including `jobs.db` + WAL files, previously tracked-able) and added `.dockerignore` so private local `data/`, `.venv`, `.git` and caches are never baked into the image.
+- **Docs de-fabricated**: `docs/USER_GUIDE_FA.md` rewritten (was a v0.9.3 copy from another project, including Node.js instructions); `docs/API.md` documents the endpoints that actually exist (dashboard, jobs, metrics, 415/400/501 paths); README formats table matches the registry; version references unified on v4.2.0; the meaningless repeated slogan ("تاریکی روشن شد") removed from scripts; the translation module no longer returns hard-coded fake benchmark scores (0.92/0.89/…) — `GoldenBenchmark` refuses to report metrics without a ground-truth dataset, and `LayoutReconstructor` returns honest empty output instead of fabricated blocks.
+
+### Added
+- **Smart Dashboard**: `GET /api/dashboard` — live, measured facts (real OCR engine probes, conversion matrix, job stats from SQLite, storage counters, security posture). The panel gains a Dashboard tab rendering it with auto-refresh and honest "what to fix next" hints.
+- `tests/test_v43.py` — dashboard shape & live counters, timing-safe auth, real PWA artifacts (PNG magic bytes), Arabic/Persian detection, benchmark refusal. Suite: 76 → **89 tests**.
+
 ## [4.2.0] - 2026-09-27 — Durable Jobs & Real Conversion Engine
 
 ### Job Orchestration, Production-Grade

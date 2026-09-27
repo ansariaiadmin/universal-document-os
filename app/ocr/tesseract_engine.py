@@ -46,6 +46,35 @@ def extract_rapidocr(file_path: str) -> Dict[str, Any]:
         raise RuntimeError(f"rapidocr OCR failed: {e}")
 
 
+def engine_available(name: str) -> bool:
+    """True when an engine's deps (and binary, for tesseract) are usable NOW.
+
+    Used by the smart dashboard: probes real state, never guesses from a
+    nonexistent file (the old probe was broken — a missing image raised
+    FileNotFoundError regardless of whether the binary existed).
+    """
+    if name == "tesseract":
+        try:
+            import pytesseract
+        except ImportError:
+            return False
+        cmd = os.getenv("TESSERACT_CMD")
+        if cmd:
+            pytesseract.pytesseract.tesseract_cmd = cmd
+        try:
+            pytesseract.get_tesseract_version()
+            return True
+        except Exception:
+            return False
+    if name == "rapidocr":
+        try:
+            import rapidocr_onnxruntime  # noqa: F401
+            return True
+        except ImportError:
+            return False
+    return False
+
+
 def extract_tesseract(file_path: str) -> Dict[str, Any]:
     """Run real OCR on an image path. Never raises for missing deps."""
     try:

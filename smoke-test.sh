@@ -1,66 +1,67 @@
 #!/usr/bin/env bash
+# Universal Document OS — smoke test (end-to-end probe of the REAL pipeline)
+# Health -> panel -> dashboard -> real upload/extract/download round-trip.
 set -e
 GREEN='\033[0;32m'; BLUE='\033[0;34m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 ok() { echo -e "${GREEN}✅ $1${NC}"; }
 warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 err() { echo -e "${RED}❌ $1${NC}"; }
-info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
 
-echo -e "${BOLD}${BLUE}🧪 Smoke Test — universal-document-os${NC}"
-echo -e "${BLUE}========================================${NC}"
+echo -e "${BOLD}${BLUE}🧪 Universal Document OS — smoke test${NC}"
 echo ""
 
-[ ! -f .env ] && { err ".env نیست — ./install.sh بزن"; exit 1; }
-source .env 2>/dev/null || true
+BASE="${SMOKE_BASE_URL:-http://localhost:8000}"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
-echo -e "${BOLD}[1/4] ❤️ Health${NC}"
-curl -sf http://localhost:8000/api/health >/dev/null 2>&1 && ok "http://localhost:8000/api/health — اوکی" || warn "http://localhost:8000/api/health — fail (is the app running?)"
-curl -sf http://localhost:8000/app >/dev/null 2>&1 && ok "http://localhost:8000/app (Panel) — اوکی" || warn "http://localhost:8000/app — fail"
+# ---------- [1/5] Health ----------
+echo -e "${BOLD}[1/5] ❤️ Health${NC}"
+curl -sf "$BASE/api/health" >/dev/null 2>&1 && ok "$BASE/api/health — UP" || err "$BASE/api/health — DOWN"
 echo ""
 
-echo -e "${BOLD}[2/4] 🤖 AI Provider — با هزینه — تاریکی روشن شد${NC}"
-if [ "$AI_PROVIDER" = "mock" ] || [ -z "$AI_PROVIDER" ]; then
-  warn "AI: mock — رایگان — بعداً کلید واقعی"
+# ---------- [2/5] Pages ----------
+echo -e "${BOLD}[2/5] 🖥️ Pages${NC}"
+curl -sf "$BASE/" >/dev/null 2>&1 && ok "landing page — UP" || warn "landing page — DOWN"
+curl -sf "$BASE/app" >/dev/null 2>&1 && ok "panel + smart dashboard — UP" || warn "panel — DOWN"
+curl -sf "$BASE/manifest.webmanifest" >/dev/null 2>&1 && ok "PWA manifest — UP" || warn "PWA manifest — DOWN"
+echo ""
+
+# ---------- [3/5] Dashboard ----------
+echo -e "${BOLD}[3/5] 📊 Smart dashboard API${NC}"
+if curl -sf "$BASE/api/dashboard" | python3 -m json.tool >/dev/null 2>&1; then
+  ok "/api/dashboard returns valid JSON"
+  curl -s "$BASE/api/dashboard" | python3 -c "import sys,json;d=json.load(sys.stdin);print('   version:',d.get('version'));print('   engines:',d.get('capabilities',{}).get('ocr_engines'))" 2>/dev/null || true
 else
-  ok "AI: $AI_PROVIDER — کلید ${OPENAI_API_KEY:0:10}... — هزینه هر درخواست ~0.01 دلار — تاریکی روشن شد"
+  warn "/api/dashboard failed"
 fi
 echo ""
 
-echo -e "${BOLD}[3/4] 📱 SMS — با هزینه + تست واقعی — تاریکی روشن شد${NC}"
-if [ "$SMS_PROVIDER" = "mock" ] || [ -z "$SMS_PROVIDER" ]; then
-  warn "SMS: mock — رایگان — پیامک تو لاگ"
-else
-  ok "SMS: $SMS_PROVIDER — ${SMS_API_KEY:0:10}... — هزینه هر پیامک ~120 تومان — تاریکی روشن شد"
-  if command -v curl &> /dev/null; then
-    if [ "$SMS_PROVIDER" = "ghasedak" ]; then
-      curl -sf -H "apikey: $SMS_API_KEY" https://api.ghasedak.me/v2/account/info -o /dev/null 2>&1 && ok "Ghasedak API — اوکی — اعتبار داره — تاریکی روشن شد" || err "Ghasedak API — fail — کلید چک کن"
-    fi
-  fi
-fi
+# ---------- [4/5] Real pipeline round-trip ----------
+echo -e "${BOLD}[4/5] 🔁 Pipeline round-trip (upload -> extract -> export -> download)${NC}"
+printf 'Universal Document OS smoke test — سلام دنیا\n' > "$TMP/note.txt"
+RESP=$(curl -s -X POST "$BASE/api/process" -F "file=@$TMP/note.txt" -F "operation=export_text" -F "target_format=md")
+echo "$RESP" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+assert d.get('status') == 'READY', d
+assert d.get('download'), d
+assert 'smoke test' in d.get('preview','')
+print('   ✅ processed:', d.get('detected_format'), '-', d.get('characters'), 'chars')
+print('   ✅ download:  ', d.get('download'))
+" || { err "process failed"; echo "$RESP"; exit 1; }
+DL=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin)['download'])")
+curl -sf "$BASE$DL" | grep -q "smoke test" && ok "downloaded export contains the text" || err "download failed"
 echo ""
 
-echo -e "${BOLD}[4/4] 🔔 Telegram — رایگان — تاریکی روشن شد${NC}"
-if [ "$NOTIF_TELEGRAM" = "yes" ] || [ "$NOTIF_TELEGRAM" = "true" ]; then
-  if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-    ok "Telegram: روشن — Bot ${TELEGRAM_BOT_TOKEN:0:10}... Chat $TELEGRAM_CHAT_ID — رایگان — تاریکی روشن شد"
-    if curl -sf https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getMe -o /dev/null 2>&1; then
-      ok "Telegram Bot — اوکی"
-      read -p "   پیام تست به تلگرام بفرستم؟ (y/n) [n]: " send_test
-      if [ "$send_test" = "y" ]; then
-        curl -sf -X POST -H "Content-Type: application/json" -d "{\"chat_id\":\"$TELEGRAM_CHAT_ID\",\"text\":\"🧪 تست universal-document-os v3.1.0 — تاریکی روشن شد — $(date)\"}" https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage -o /dev/null 2>&1 && ok "Telegram پیام تست فرستاده شد — چک کن" || err "Telegram fail"
-      fi
-    else
-      err "Telegram Bot — fail — توکن چک کن"
-    fi
-  else
-    err "Telegram: روشن ولی توکن یا Chat ID نیست"
-  fi
+# ---------- [5/5] OCR (real, only if tesseract is installed) ----------
+echo -e "${BOLD}[5/5] 🔍 OCR engine (real check)${NC}"
+if command -v tesseract >/dev/null 2>&1; then
+  ok "tesseract binary present: $(tesseract --version 2>&1 | head -n 1)"
 else
-  warn "Telegram: خاموش — رایگان — بهترین برای ناتیف — .env → NOTIF_TELEGRAM=yes"
+  warn "tesseract binary not on this host — OCR works inside the Docker image, not here"
 fi
 echo ""
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  🎉 Smoke Test تمام — تاریکی روشن شد!${NC}"
+echo -e "${GREEN}🎉 smoke test finished${NC}"
 echo -e "${GREEN}========================================${NC}"
-echo ""

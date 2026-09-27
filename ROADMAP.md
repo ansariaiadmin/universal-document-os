@@ -1,6 +1,6 @@
 # Roadmap — Universal Document OS
 
-**Last updated:** v3.2.4 · This file states honestly what is shipped, what is scaffolded, and what is planned. No hidden gaps, no vaporware claims.
+**Last updated:** v4.2.0 (follow-up) · This file states honestly what is shipped, what is scaffolded, and what is planned. No hidden gaps, no vaporware claims.
 
 ---
 
@@ -12,47 +12,53 @@
 
 ---
 
-## Shipped (through v3.2.4)
+## Shipped (through v4.2.0)
 
-### Core pipeline (v0.9 → v3.2.3)
-- ✅ Adapter registry with PDF / DOCX / XLSX / PPTX / ODT / TXT / MD / CSV / JSON / HTML / RTF extraction
-- ✅ Landing + upload panel (Jinja2), streaming multipart processing, workroom records, append-only audit log
-- ✅ Export to `.txt`/`.md` + traversal-safe download endpoint
-- ✅ Docker: multi-stage, non-root, healthcheck; docker-compose single service
-- ✅ CI: ruff + pytest + docker build on every push/PR
-- ✅ PWA assets + structured logging
+### Core pipeline (v0.9 → v4.2)
+- ✅ Adapter registry with PDF / DOCX / XLSX / PPTX / ODT / ODS / ODP / TXT / MD / CSV / JSON / HTML / RTF extraction (OpenDocument via stdlib, zero extra deps)
+- ✅ Real OCR for images wired into `/api/process` (Tesseract binary ships in the Docker image with `eng+fas`; RapidOCR pip-fallback)
+- ✅ Real DOC extraction via `antiword` (when the binary is present)
+- ✅ Landing + VS Code-style upload panel with a **Smart Dashboard tab**, streaming multipart processing, workroom records, SQLite job store, append-only audit log
+- ✅ `GET /api/dashboard` — live measured facts (real engine probes, conversion matrix, counters)
+- ✅ Export/convert to `.txt`/`.md`/`.html` + traversal-safe download endpoint
+- ✅ Adaptive content guard: magic bytes, zip-bomb budget, extraction size ceilings
+- ✅ Docker: multi-stage, non-root, tesseract+fas, healthcheck; docker-compose single service
+- ✅ Opt-in API-key auth (timing-safe) + opt-in rate limiting + Prometheus metrics
+- ✅ Real PWA surface: served web manifest, generated PNG icons, service worker
+- ✅ CI: ruff + pytest + docker build on every push/PR (tool versions pinned)
 
-### Hardening release (v3.2.4 — Audit & Hardening)
-- ✅ Security: path-traversal-proof downloads, filename sanitization, enforced upload size limit (`413`)
-- ✅ Fixes: notification inbox persistence, XLSX formula-vs-value export, three-way version consistency
-- ✅ Architecture: central `app/config.py`, dedicated `app/security.py`, proper package `__init__.py`s, dead-code removal
-- ✅ Test isolation via fixtures (repo `data/` never polluted); suite grew 19 → **29 tests**
-- ✅ Repo hygiene: runtime data untracked and git-ignored
-- ✅ Docs rewrite: README / API / ARCHITECTURE / SECURITY / guides aligned to actual source
+### Honesty release (v4.2.0 follow-up — audit fixes)
+- ✅ Arabic no longer misdetected as Persian; timing-safe API-key comparison
+- ✅ `backup.sh` archives all of `data/` (secret values redacted); optional passphrase encryption
+- ✅ `.dockerignore` keeps private data out of images; `.gitignore` covers all of `data/`
+- ✅ Translation module no longer returns fabricated benchmark scores; benchmark refuses without a dataset
+- ✅ Scripts (install/status/update/backup/smoke-test) rewritten for this repo; dead copied-project blocks removed
+- ✅ Docs unified on v4.2.0; suite grew to **89 tests**
 
-### Real engines available as libraries (not yet in API)
-- ✅ `app/ocr/tesseract_engine.py` — genuine Tesseract OCR (`pytesseract`) and RapidOCR (ONNX) implementations with graceful degradation when binaries/libs are missing; configurable via `TESSERACT_CMD`, `OCR_LANGS` (default `eng+fas`)
-- ✅ SMS adapters for Ghasedak & Kavenegar with balance check (`test_connection`) and mock fallback
+### Still scaffolded (real code, not exposed via API)
+- 🟡 SMS adapters for Ghasedak & Kavenegar (real HTTP adapters, mock fallback) — no request handler calls them yet
+- 🟡 Notification service (persistent in-app inbox + real Telegram send) — not wired into the API path
+- 🟡 Translation service (mock provider flagged `"mock": true`) — no endpoint yet
 
 ---
 
-## Next up — v3.3 «Wire the intelligence in»
+## Next up
 
 Priority order reflects user value ÷ effort:
 
-1. ⬜ **OCR into `/api/process`** — when extraction yields empty text (scanned PDF/image), call `tesseract_engine.extract_tesseract()` / RapidOCR automatically; store `{engine, confidence}` in the workroom. *The engines exist; this is integration + tests.*
-2. ⬜ **Retire mock engines in `multi_engine.py`** — replace fabricated paddle/easy outputs with real engine list or remove them; keep only honest fallbacks.
-3. ⬜ **Translation endpoint** — `POST /api/translate {job_id, target}` using a real provider behind the existing `TranslationProvider` interface (DeepL/Google/local NLLB), keeping `"mock": true` semantics for offline dev.
-4. ⬜ **Legacy format conversion** — optional LibreOffice-headless step so DOC/XLS/PPT/ODS/ODP become extractable; clean error if binary absent.
-5. ⬜ **Notifications wiring** — emit in-app/Telegram notifications after job completion from the API path (channels already implemented).
+1. ⬜ **OCR for scanned PDFs** — render PDF pages and run the existing OCR engines when a PDF yields no text layer (`{engine, confidence}` stored in the workroom). *Engines are real; this is rendering + integration.*
+2. ⬜ **Translation endpoint** — `POST /api/translate {job_id, target}` using a real provider behind the existing `TranslationProvider` interface (DeepL/Google/local NLLB), keeping `"mock": true` semantics for offline dev.
+3. ⬜ **Notifications wiring** — emit in-app/Telegram notifications after job completion from the API path (channels already implemented).
+4. ⬜ **Legacy XLS/PPT conversion** — optional LibreOffice-headless step; clean error if the binary is absent (DOC already works via antiword).
+5. ⬜ **Real quality benchmark** — a small ground-truth dataset + scoring so `GoldenBenchmark` can report real metrics instead of refusing.
 
-## Then — v4.0 «Multi-user ready»
+## Then — «Multi-user ready»
 
-6. ⬜ **Authentication & tenancy** — API keys or session auth; per-user workroom visibility. **Blocking requirement before any public deployment.**
-7. ⬜ **Database-backed store** — SQLite first (zero-ops), Postgres optional; migrate workrooms/audit out of loose files; keep filesystem blobs.
-8. ⬜ **Rate limiting & quotas** — per-key upload limits, disk quota enforcement.
-9. ⬜ **Job lifecycle** — list/get/delete jobs endpoints; retention policy with automatic purge.
-10. ⬜ **Observability** — Prometheus `/metrics`, OpenTelemetry traces, graceful shutdown hooks (closes factor IX gap).
+6. 🟡→⬜ **Full tenancy** — API-key auth exists (opt-in); add sessions/per-user workroom visibility. **Blocking requirement before any public deployment.**
+7. ⬜ **Database-backed store for workrooms/audit** — the job store is already SQLite; migrate the rest; keep filesystem blobs.
+8. ⬜ **Quotas** — per-key disk quotas on top of the existing rate limiter.
+9. ⬜ **Job lifecycle UI** — delete/retention controls beyond the TTL sweeper.
+10. ⬜ **Observability** — Prometheus `/metrics` shipped; OpenTelemetry traces next.
 
 ## Backlog / research
 

@@ -12,8 +12,8 @@ cd universal-document-os
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-pytest -q          # expect: 29 passed
-ruff check app/    # expect: All checks passed!
+pytest -q          # expect: 89 passed
+ruff check .       # expect: All checks passed!
 uvicorn app.main:app --reload --port 8000   # optional live server
 ```
 
@@ -29,8 +29,9 @@ Windows: use `.venv\Scripts\activate`. For container-based work see [INSTALL.md]
 
 Code:
 - [ ] `pytest -q` passes locally (add at least one test for any new behavior; bug fixes need a regression test)
-- [ ] `ruff check app/` clean
+- [ ] `ruff check .` clean
 - [ ] No new required dependency without adding it to `requirements.txt` (optional deps must degrade gracefully via `UnsupportedFormat`)
+- [ ] No fabricated outputs: unavailable engines/tools produce honest errors; the dashboard only shows measured values
 
 Contracts (this repo treats these as hard rules):
 - [ ] Any user-supplied filename/path goes through `app/security.py` helpers only
@@ -44,6 +45,7 @@ Docs (updated **in the same PR**):
 - [ ] Architecture-level change → [ARCHITECTURE.md](ARCHITECTURE.md) module map / ADR list
 - [ ] User-visible feature → CHANGELOG entry under an "Unreleased" heading
 - [ ] Scripts changed → keep `.sh` and `.bat` pairs equivalent; port stays **8000** everywhere
+- [ ] New env var → actually read it in `app/` code, and keep `.env.example` limited to real variables
 
 ## 4. Testing guidelines
 
