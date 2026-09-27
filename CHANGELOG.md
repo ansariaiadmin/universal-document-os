@@ -86,3 +86,8 @@ Versions follow SemVer; the single source of truth for the running version is `a
 
 ## [v0.9.x] - initial local-install editions
 - Auto install/update scripts, user guides (FA/EN).
+
+## [4.1.1] - 2026-09-27
+### Security
+- **Content guard bypass closed (found by live audit):** files with executable magic bytes (`MZ`/PE, ELF) renamed to `.pdf`/`.docx` were passing the gate because unknown media types were treated as "no evidence". Executives and shebang scripts are now hard-rejected with HTTP 415 before any extraction runs.
+- 3 new regression tests (dosexec-as-pdf, elf-as-docx, script-as-doc); suite: 64/64 green.

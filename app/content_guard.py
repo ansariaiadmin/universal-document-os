@@ -20,6 +20,11 @@ import zipfile
 
 # signature (hex prefix, offset) -> canonical media type
 _SIGNATURES = [
+    # Executives first: a file whose bytes say MZ/ELF is never a document,
+    # whatever extension it wears.
+    (b"MZ", 0, "application/x-dosexec"),               # PE / Windows exe
+    (b"\x7fELF", 0, "application/x-elf"),              # Linux ELF binary
+    (b"#!", 0, "text/x-script"),                       # shebang script
     (b"%PDF-", 0, "application/pdf"),
     (b"PK\x03\x04", 0, "application/zip"),          # OOXML / ODF containers
     (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", 0, "application/x-ole"),  # legacy Office
@@ -129,6 +134,13 @@ def verify(path, fmt: str, max_extract_bytes: int) -> None:
     """Full adaptive gate for one uploaded file. Raises ContentRejected."""
     media = sniff_type(path)
     ext = path.suffix.lower()
+
+    # Hard block: executable/script magic bytes are never a document,
+    # regardless of claimed extension (MZ.exe renamed to report.pdf etc.).
+    if media in ("application/x-dosexec", "application/x-elf"):
+        raise ContentRejected(f"executable payload detected ({media})")
+    if media == "text/x-script" and ext not in TEXT_EXTS:
+        raise ContentRejected("shebang script submitted as a document")
 
     # Unknown extension: only the whitelisted text family survives, and even
     # then the payload must actually look like text.

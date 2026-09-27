@@ -1,5 +1,6 @@
 """v4.1 — adaptive intelligence, content guard, rate limiting, extraction budgets."""
 import io
+import pytest
 import zipfile
 
 from app.intelligence import analyze, classify_document, detect_language
@@ -121,3 +122,28 @@ def test_extraction_budget_cap(monkeypatch, tmp_path):
     out = adapters.extract(f, fmt="TXT")
     assert "[TRUNCATED" in out
     assert len(out) < 200
+
+
+def test_guard_blocks_dosexec_disguised_as_pdf(tmp_path):
+    """MZ header renamed to .pdf must be rejected (live-bypass found in audit)."""
+    from app.content_guard import ContentRejected, verify
+    p = tmp_path / "report.pdf"
+    p.write_bytes(b"MZ\x90\x00" + b"x" * 200)
+    with pytest.raises(ContentRejected):
+        verify(p, "PDF", 10_000_000)
+
+
+def test_guard_blocks_elf_disguised_as_docx(tmp_path):
+    from app.content_guard import ContentRejected, verify
+    p = tmp_path / "invoice.docx"
+    p.write_bytes(b"\x7fELF\x02\x01" + b"x" * 200)
+    with pytest.raises(ContentRejected):
+        verify(p, "DOCX", 10_000_000)
+
+
+def test_guard_blocks_shebang_script_as_txt_ext(tmp_path):
+    from app.content_guard import ContentRejected, verify
+    p = tmp_path / "notes.sh"
+    p.write_bytes(b"#!/bin/sh\nrm -rf /\n")
+    with pytest.raises(ContentRejected):
+        verify(p, "UNKNOWN", 10_000_000)
