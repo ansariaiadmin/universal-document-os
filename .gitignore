@@ -12,6 +12,7 @@ data/audit.jsonl
 
 # Secrets
 .env
+*.key
 
 # Bundles and archives
 *.bundle

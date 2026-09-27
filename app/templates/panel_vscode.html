@@ -90,6 +90,7 @@
 <footer class="vsc-statusbar">
   <span class="item" id="st-status">⓪ Ready</span>
   <span class="item" id="st-format">—</span>
+  <span class="item" id="st-intel">🧠 —</span>
   <span class="item" id="st-size">UTF-8</span>
   <span class="spacer"></span>
   <span class="item" id="st-counts">uploads: – · outputs: – · workrooms: –</span>
@@ -125,6 +126,7 @@ function render(text){
 
 
 // v4.0 — API key support (X-API-Key). Key is asked once and kept in sessionStorage.
+const stI=document.querySelector('#st-intel');
 let apiKey = sessionStorage.getItem('udo_api_key') || '';
 async function api(path, opts){
   opts = opts || {};
@@ -159,6 +161,12 @@ f.onsubmit=async e=>{
     render(JSON.stringify(j,null,2));
     stF.textContent=(j.detected_format||'—').toUpperCase();
     stS.textContent='✓ Done';
+    // v4.1 — adaptive intelligence badges (language / direction / category)
+    const it=j.intelligence||{};
+    if(it.language){
+      stI.textContent=`${it.language.toUpperCase()} · ${it.category||'general'} · ${it.word_count||0} words`;
+      document.documentElement.dir = it.direction==='rtl' ? 'rtl' : 'ltr';
+    }
     notice.className='notice ok';
     notice.innerHTML=j.download?('تحلیل موفق بود · '+j.characters+' کاراکتر · <a href="'+j.download+'" style="color:#4fc1ff">دانلود خروجی ⬇</a>')
       :('تحلیل موفق بود · '+j.characters+' کاراکتر · فرمت: '+(j.detected_format||'نامشخص'));
@@ -173,10 +181,10 @@ f.onsubmit=async e=>{
 async function loadJobs(){
   try{
     const box=document.querySelector('#jobs');
-    const r=await api('/api/status');const j=await r.json();
-    box.innerHTML='<div class="vsc-tree-item"><span class="fi">🗂</span> workrooms<span class="badge">'+j.workrooms+'</span></div>'
-      +(box.dataset.hint||'');
-    if(!box.dataset.hint){box.dataset.hint='<div class="vsc-tree-item" style="color:#858585">آخرین job ها بعد از هر اجرا به‌روز می‌شوند</div>';box.innerHTML+=box.dataset.hint;}
+    const r=await api('/api/jobs');const j=await r.json();
+    const items=(j.jobs||[]).slice(0,12).map(x=>
+      `<div class="vsc-tree-item" title="${x.job_id}"><span class="fi">📄</span> ${(x.filename||x.job_id).slice(0,26)}<span class="badge">${x.status||'?'}</span></div>`);
+    box.innerHTML=items.length?items.join(''):'<div class="vsc-tree-item" style="color:#858585">هنوز سندی پردازش نشده — فایلتان را رها کنید ✨</div>';
   }catch(e){}
 }
 loadJobs();

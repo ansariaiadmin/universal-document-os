@@ -1,9 +1,29 @@
 """Adapters for Universal Document OS — each format has dedicated extractor.
 Supports PDF/DOCX/XLSX/TXT/CSV/MD/JSON/HTML/RTF/PPTX/ODT with clean UnsupportedFormat handling.
+
+v4.1 hardening: every text-producing adapter is bounded by ``MAX_EXTRACT_BYTES``
+— a 25 MB upload must never expand into an unbounded in-memory string.
 """
 from __future__ import annotations
 
 import pathlib
+
+from app.config import MAX_EXTRACT_BYTES, MAX_TEXT_CHARS
+
+
+def _cap(text: str) -> str:
+    """Truncate extracted text to the configured character budget."""
+    if len(text) > MAX_TEXT_CHARS:
+        return text[:MAX_TEXT_CHARS] + f"\n[TRUNCATED at {MAX_TEXT_CHARS} chars]"
+    return text
+
+
+def _guard_size(path: pathlib.Path) -> None:
+    size = path.stat().st_size
+    if size > MAX_EXTRACT_BYTES:
+        raise RuntimeError(
+            f"file too large to extract safely ({size} bytes > {MAX_EXTRACT_BYTES} limit)"
+        )
 
 
 class UnsupportedFormat(Exception):
@@ -28,9 +48,18 @@ def extract_pdf(path: pathlib.Path) -> str:
         from pypdf import PdfReader
     except ImportError as e:
         raise UnsupportedFormat("PDF", f"pypdf missing: {e}")
+    _guard_size(path)
     try:
         reader = PdfReader(str(path))
-        return "\n".join((p.extract_text() or "") for p in reader.pages)
+        out = []
+        total = 0
+        for page in reader.pages:
+            t = page.extract_text() or ""
+            out.append(t)
+            total += len(t)
+            if total > MAX_TEXT_CHARS:  # stop early on pathological PDFs
+                break
+        return _cap("\n".join(out))
     except Exception as e:
         raise RuntimeError(f"PDF extraction failed: {e}")
 
@@ -40,9 +69,10 @@ def extract_docx(path: pathlib.Path) -> str:
         from docx import Document
     except ImportError as e:
         raise UnsupportedFormat("DOCX", f"python-docx missing: {e}")
+    _guard_size(path)
     try:
         doc = Document(str(path))
-        return "\n".join(p.text for p in doc.paragraphs)
+        return _cap("\n".join(p.text for p in doc.paragraphs))
     except Exception as e:
         raise RuntimeError(f"DOCX extraction failed: {e}")
 
@@ -52,15 +82,23 @@ def extract_xlsx(path: pathlib.Path) -> str:
         from openpyxl import load_workbook
     except ImportError as e:
         raise UnsupportedFormat("XLSX", f"openpyxl missing: {e}")
+    _guard_size(path)
     try:
         # data_only=True -> cell values instead of raw formulas in the output text
         wb = load_workbook(path, read_only=True, data_only=True)
         out = []
+        total = 0
         for ws in wb.worksheets:
             out.append(f"[SHEET] {ws.title}")
             for row in ws.iter_rows(values_only=True):
-                out.append("\t".join("" if v is None else str(v) for v in row))
-        return "\n".join(out)
+                line = "\t".join("" if v is None else str(v) for v in row)
+                out.append(line)
+                total += len(line)
+                if total > MAX_TEXT_CHARS:  # huge sheets truncate, never OOM
+                    break
+            if total > MAX_TEXT_CHARS:
+                break
+        return _cap("\n".join(out))
     except Exception as e:
         raise RuntimeError(f"XLSX extraction failed: {e}")
 
@@ -72,8 +110,9 @@ def extract_xlsx(path: pathlib.Path) -> str:
 @register("HTML")
 @register("RTF")
 def extract_textlike(path: pathlib.Path) -> str:
-    # Try utf-8, fallback replace
-    return path.read_text(encoding="utf-8", errors="replace")
+    # Bounded read: never slurp more than MAX_EXTRACT_BYTES into memory.
+    _guard_size(path)
+    return _cap(path.read_text(encoding="utf-8", errors="replace"))
 
 @register("PPTX")
 def extract_pptx(path: pathlib.Path) -> str:
@@ -82,6 +121,7 @@ def extract_pptx(path: pathlib.Path) -> str:
         from pptx import Presentation
     except ImportError as e:
         raise UnsupportedFormat("PPTX", f"python-pptx not installed: {e}. Install with pip install python-pptx")
+    _guard_size(path)
     try:
         prs = Presentation(str(path))
         texts = []
@@ -89,7 +129,7 @@ def extract_pptx(path: pathlib.Path) -> str:
             for shape in slide.shapes:
                 if hasattr(shape, "text") and shape.text:
                     texts.append(shape.text)
-        return "\n".join(texts)
+        return _cap("\n".join(texts))
     except Exception as e:
         raise RuntimeError(f"PPTX extraction failed: {e}")
 
@@ -105,6 +145,7 @@ def extract_opendocument(path: pathlib.Path) -> str:
     import xml.etree.ElementTree as ET
     import zipfile
 
+    _guard_size(path)
     members = {"ODT": "content.xml", "ODS": "content.xml", "ODP": "content.xml"}
     fmt = _format_of(path)
     try:
@@ -112,6 +153,11 @@ def extract_opendocument(path: pathlib.Path) -> str:
             name = members.get(fmt, "content.xml")
             if name not in z.namelist():
                 raise UnsupportedFormat(fmt, f"{name} not found in archive")
+            info = z.getinfo(name)
+            if info.file_size > MAX_EXTRACT_BYTES:
+                raise RuntimeError(
+                    f"{fmt} member '{name}' unpacks to {info.file_size} bytes (limit {MAX_EXTRACT_BYTES})"
+                )
             data = z.read(name)
     except zipfile.BadZipFile as e:
         raise RuntimeError(f"{fmt} extraction failed: not a valid zip: {e}")

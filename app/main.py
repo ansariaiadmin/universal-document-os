@@ -18,6 +18,7 @@ from app.config import (
     APP_VERSION,
     AUDIT_FILE,
     BASE,
+    MAX_EXTRACT_BYTES,
     MAX_UPLOAD_BYTES,
     OUTPUTS,
     PREVIEW_CHARS,
@@ -29,6 +30,8 @@ from app.jobs import JOBS
 from app.security import resolve_within, sanitize_filename
 
 logger = logging.getLogger("udo")
+
+_START_TS = time.time()
 
 ensure_dirs()
 
@@ -57,9 +60,13 @@ templates = Jinja2Templates(directory=BASE / "app/templates")
 
 # --- v3.5: optional API-key guard + Prometheus metrics -------------------
 from app.auth import api_key_guard  # noqa: E402
+from app.content_guard import ContentRejected  # noqa: E402
+from app.content_guard import verify as content_verify  # noqa: E402
 from app.metrics import metrics_response, request_counter  # noqa: E402
+from app.ratelimit import rate_limit_guard  # noqa: E402
 
 app.middleware("http")(api_key_guard)
+app.middleware("http")(rate_limit_guard)
 
 
 @app.middleware("http")
@@ -91,16 +98,17 @@ def detect(path) -> str:
 
 def extract_text(path) -> str:
     """Dispatch to adapters package with clean UnsupportedFormat handling."""
-    from app.adapters import SUPPORTED_FORMATS, UnsupportedFormat
+    from app.adapters import UnsupportedFormat
     from app.adapters import extract as adapter_extract
 
     fmt = detect(path)
     try:
         return adapter_extract(path, fmt=fmt)
     except UnsupportedFormat as uf:
-        return f"[UNSUPPORTED_FORMAT] {uf}"
-    except Exception as e:
-        return f"[EXTRACTION_ERROR] {e} (supported: {','.join(SUPPORTED_FORMATS)})"
+        return f"[UNSUPPORTED_FORMAT] {uf.fmt}: {uf.reason or 'no adapter'}"
+    except Exception:
+        logger.exception("extraction failed for %s", path.name)
+        return "[EXTRACTION_ERROR] extraction failed; see server log for details"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -144,8 +152,20 @@ async def process(
             out.write(chunk)
 
     fmt = detect(src)
+    # v4.1 — adaptive content gate: magic bytes must agree with the claimed
+    # extension, binary junk can't ride the text fallback, zip bombs are cut.
+    try:
+        await asyncio.to_thread(content_verify, src, fmt, MAX_EXTRACT_BYTES)
+    except ContentRejected as cr:
+        src.unlink(missing_ok=True)
+        audit("REJECTED", filename=safe, reason=str(cr))
+        raise HTTPException(status_code=415, detail=f"content rejected: {cr}")
     # Extraction is CPU-bound — run it off the event loop so uploads stay snappy.
     text = await asyncio.to_thread(extract_text, src)
+    # v4.1 — per-document intelligence: language, direction, category, stats.
+    from app.intelligence import analyze  # local import keeps startup lean
+
+    intel = await asyncio.to_thread(analyze, text) if text else {}
     result = {
         "job_id": job,
         "filename": safe,
@@ -156,6 +176,7 @@ async def process(
         "characters": len(text),
         "status": "ANALYZED",
         "preview": text[:PREVIEW_CHARS],
+        "intelligence": intel,
     }
     (WORKROOMS / f"{job}.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -242,8 +263,25 @@ async def download(name: str):
 
 @app.get("/api/status")
 async def status():
+    """Workspace counters + runtime facts. Safe when directories are absent."""
+
+    def _count(d) -> int:
+        try:
+            return sum(1 for _ in d.iterdir())
+        except OSError:
+            return 0
+
+    from app.auth import auth_enabled
+    from app.ratelimit import _limit
+
     return {
-        "uploads": sum(1 for _ in UPLOADS.iterdir()),
-        "outputs": sum(1 for _ in OUTPUTS.iterdir()),
-        "workrooms": sum(1 for _ in WORKROOMS.iterdir()),
+        "uploads": _count(UPLOADS),
+        "outputs": _count(OUTPUTS),
+        "workrooms": _count(WORKROOMS),
+        "uptime_seconds": round(time.time() - _START_TS, 1),
+        "features": {
+            "auth": auth_enabled(),
+            "rate_limit_per_min": _limit(),
+            "max_upload_bytes": MAX_UPLOAD_BYTES,
+        },
     }

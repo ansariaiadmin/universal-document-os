@@ -18,10 +18,13 @@ AUDIT_FILE = DATA / "audit.jsonl"
 # Limits
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 25 * 1024 * 1024))  # 25 MB default
 PREVIEW_CHARS = int(os.getenv("PREVIEW_CHARS", 5000))
+# v4.1 — extraction budgets: an upload must never expand into unbounded memory.
+MAX_EXTRACT_BYTES = int(os.getenv("MAX_EXTRACT_BYTES", 64 * 1024 * 1024))  # decompressed ceiling
+MAX_TEXT_CHARS = int(os.getenv("MAX_TEXT_CHARS", 2_000_000))               # extracted-text ceiling
 
 # App metadata — single version source
 APP_NAME = "Universal Document OS"
-APP_VERSION = os.getenv("APP_VERSION", "4.0.0")
+APP_VERSION = os.getenv("APP_VERSION", "4.1.0")
 
 def ensure_dirs() -> None:
     """Create runtime directories if missing."""
