@@ -10,7 +10,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](docker-compose.yml)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Current version:** v3.2.6 (single source of truth: `APP_VERSION` in [`app/config.py`](app/config.py)).
+**Current version:** v3.2.7 (single source of truth: `APP_VERSION` in [`app/config.py`](app/config.py)).
 
 ---
 
@@ -285,4 +285,4 @@ We prefer accurate over impressive. Current state, plainly:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Copyright © 2026 **[Mohammad Ansari](https://github.com/ansariaiadmin)**. You are free to use, copy, modify, and redistribute this project under the MIT license — please keep the copyright notice intact.

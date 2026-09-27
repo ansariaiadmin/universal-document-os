@@ -3,6 +3,15 @@
 All notable changes to Universal Document OS are documented here.
 Versions follow SemVer; the single source of truth for the running version is `app/config.py` (`APP_VERSION`).
 
+## [v3.2.7] - 2026-09-27 — VS Code Panel & Ownership
+
+### UI/UX
+- **New control panel** (`app/templates/panel_vscode.html` + `app/static/vscode.css`): full VS Code Dark+ chrome — title bar, activity bar, document explorer sidebar, tabs, line-numbered editor with JSON syntax highlighting, drop-zone upload, live status bar (job state, detected format, workspace counters). `/app` now serves it; legacy `panel.html` kept as fallback.
+
+### Governance
+- Author and copyright formally set: **Mohammad Ansari** (https://github.com/ansariaiadmin) in LICENSE and README; MIT terms unchanged — free to use, modify and redistribute with attribution kept intact.
+- Version bump `APP_VERSION=3.2.7`; README synced to the single source of truth.
+
 ## [v3.2.6] - 2026-09-27 — Real OCR Wiring & Documentation Unification
 
 ### Architecture

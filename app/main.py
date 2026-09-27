@@ -77,7 +77,9 @@ async def landing(request: Request):
 
 @app.get("/app", response_class=HTMLResponse)
 async def panel(request: Request):
-    return templates.TemplateResponse(request, "panel.html")
+    return templates.TemplateResponse(
+        request, "panel_vscode.html", {"version": APP_VERSION}
+    )
 
 
 @app.get("/api/health")

@@ -19,7 +19,7 @@ PREVIEW_CHARS = int(os.getenv("PREVIEW_CHARS", 5000))
 
 # App metadata — single version source
 APP_NAME = "Universal Document OS"
-APP_VERSION = os.getenv("APP_VERSION", "3.2.6")
+APP_VERSION = os.getenv("APP_VERSION", "3.2.7")
 
 def ensure_dirs() -> None:
     """Create runtime directories if missing."""

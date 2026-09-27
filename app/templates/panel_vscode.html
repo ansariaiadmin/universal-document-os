@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UDO — Control Panel</title>
+<link rel="stylesheet" href="/static/vscode.css">
+</head>
+<body class="vscode" dir="rtl">
+
+<!-- ===== Title bar ===== -->
+<div class="vsc-titlebar">
+  <span class="logo">U</span>
+  <span class="menu"><span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Help</span></span>
+  <span class="title" style="margin-inline:auto">Universal Document OS — workspace: local · v{{ version }}</span>
+</div>
+
+<!-- ===== Activity bar ===== -->
+<nav class="vsc-activitybar" aria-label="Activity Bar">
+  <button class="active" title="Explorer" data-view="explorer">
+    <svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zM7 12l3-6 3 6H7zm4.5 1L14 19l-2 .5-2.5-5.5 2-.5z"/></svg>
+    Explorer
+  </button>
+  <button title="Search" data-view="search">
+    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>
+    Search
+  </button>
+  <button title="Output" data-view="output">
+    <svg viewBox="0 0 24 24"><path d="M4 5h16v2H4V5zm0 4h10v2H4V9zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"/></svg>
+    Output
+  </button>
+  <button title="Settings" onclick="window.location='/'">
+    <svg viewBox="0 0 24 24"><path d="M19.4 13a7.8 7.8 0 0 0 0-2l2-1.6-2-3.5-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3H11l-.3 2.9a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.5L2.6 11a7.8 7.8 0 0 0 0 2l-2 1.6 2 3.5 2.4-1c.5.4 1.1.8 1.7 1L11 21h4l.3-2.9c.6-.2 1.2-.6 1.7-1l2.4 1 2-3.5-2-1.6zM13 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+    Home
+  </button>
+</nav>
+
+<!-- ===== Side bar ===== -->
+<aside class="vsc-sidebar">
+  <section class="vsc-section">
+    <h2>Document Explorer</h2>
+    <div id="jobs" style="max-height:200px;overflow:auto"></div>
+  </section>
+
+  <section class="vsc-section">
+    <h2>New Job</h2>
+    <form id="f" class="vsc-form">
+      <div class="dropzone" id="dz">فایل را اینجا رها کنید یا انتخاب کنید<br><small>(PDF · DOCX · XLSX · PPTX · ODT · MD · TXT)</small></div>
+      <input id="file" type="file" required hidden>
+      <label for="op">Operation</label>
+      <select id="op">
+        <option value="analyze">analyze — تشخیص و تحلیل</option>
+        <option value="copy">copy — خروجی متن</option>
+      </select>
+      <label for="target">Target format</label>
+      <select id="target">
+        <option value="same">same (بدون تبدیل)</option>
+        <option value="txt">TXT</option>
+        <option value="md">Markdown</option>
+      </select>
+      <button class="vsc-btn" type="submit">▶ Run Job</button>
+    </form>
+  </section>
+
+  <section class="vsc-section">
+    <h2>References</h2>
+    <a class="vsc-tree-item" href="/api/docs" target="_blank"><span class="fi">📘</span> API Reference (Swagger)</a>
+    <a class="vsc-tree-item" href="/INSTALL.md" target="_blank"><span class="fi">📦</span> Install guide</a>
+    <a class="vsc-tree-item" href="https://github.com/ansariaiadmin/universal-document-os" target="_blank"><span class="fi">🐙</span> GitHub repo</a>
+  </section>
+</aside>
+
+<!-- ===== Editor ===== -->
+<main class="vsc-editor">
+  <div class="vsc-tabs">
+    <div class="vsc-tab active"><span class="dot"></span>output: udo.log</div>
+    <div class="vsc-tab">README.md</div>
+  </div>
+  <div class="vsc-breadcrumb">universal-document-os › app › panel › output</div>
+  <div class="notice" id="notice">آمادهٔ اجرای اولین job — یک فایل انتخاب کنید و Run را بزنید.</div>
+  <div class="vsc-editor-body">
+    <div class="gutter" id="gutter">1</div>
+    <pre class="code" id="out">// UDO Control Panel
+// نسخه محلی در حال اجراست؛ همه پردازش‌ها آفلاین و داخل همین سیستم انجام می‌شود.
+// پس از اجرای job، نتیجه JSON با highlight کامل همین‌جا چاپ می‌شود.</pre>
+  </div>
+</main>
+
+<!-- ===== Status bar ===== -->
+<footer class="vsc-statusbar">
+  <span class="item" id="st-status">⓪ Ready</span>
+  <span class="item" id="st-format">—</span>
+  <span class="item" id="st-size">UTF-8</span>
+  <span class="spacer"></span>
+  <span class="item" id="st-counts">uploads: – · outputs: – · workrooms: –</span>
+  <span class="item">Ln 1, Col 1</span>
+  <span class="item">v{{ version }}</span>
+  <span class="item"><a href="https://github.com/ansariaiadmin/universal-document-os" target="_blank">⚡ UDO · MIT © Mohammad Ansari</a></span>
+</footer>
+
+<script>
+const f=document.querySelector('#f'), dz=document.querySelector('#dz'), fi=document.querySelector('#file');
+const out=document.querySelector('#out'), gut=document.querySelector('#gutter'), notice=document.querySelector('#notice');
+const stS=document.querySelector('#st-status'), stF=document.querySelector('#st-format'), stC=document.querySelector('#st-counts');
+
+// dropzone -> hidden file input
+dz.onclick=()=>fi.click();
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};
+dz.ondragleave=()=>dz.classList.remove('over');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0]){fi.files=e.dataTransfer.files;dz.textContent=fi.files[0].name+' ✓'}};
+fi.onchange=()=>{if(fi.files[0])dz.textContent=fi.files[0].name+' ✓'};
+
+// pretty-print JSON like a syntax-highlighted editor buffer
+function hl(text){
+  const esc=s=>text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc().replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,m=>{
+    let cls='n'; if(/^"/.test(m)){cls=/:$/.test(m)?'k':'s';} else if(/true|false|null/.test(m))cls='b';
+    return '<span class="'+cls+'">'+m+'</span>';});
+}
+function render(text){
+  out.innerHTML=hl(text);
+  const n=text.split('\n').length;
+  gut.innerHTML=Array.from({length:n},(_,i)=>i+1).join('<br>');
+}
+
+async function refreshCounts(){
+  try{const r=await fetch('/api/status');const j=await r.json();
+    stC.textContent=`uploads: ${j.uploads} · outputs: ${j.outputs} · workrooms: ${j.workrooms}`;}catch(e){}
+}
+refreshCounts(); setInterval(refreshCounts,5000);
+
+f.onsubmit=async e=>{
+  e.preventDefault();
+  if(!fi.files[0]){notice.className='notice err';notice.textContent='اول یک فایل انتخاب کنید.';return;}
+  stS.innerHTML='<span class="spin"></span> Processing…';
+  notice.className='notice';notice.textContent='در حال پردازش — '+fi.files[0].name;
+  const fd=new FormData();
+  fd.append('file',fi.files[0]);fd.append('operation',document.querySelector('#op').value);fd.append('target_format',document.querySelector('#target').value);
+  try{
+    const r=await fetch('/api/process',{method:'POST',body:fd});
+    const j=await r.json();
+    if(!r.ok){throw new Error(j.detail||('HTTP '+r.status));}
+    render(JSON.stringify(j,null,2));
+    stF.textContent=(j.detected_format||'—').toUpperCase();
+    stS.textContent='✓ Done';
+    notice.className='notice ok';
+    notice.innerHTML=j.download?('تحلیل موفق بود · '+j.characters+' کاراکتر · <a href="'+j.download+'" style="color:#4fc1ff">دانلود خروجی ⬇</a>')
+      :('تحلیل موفق بود · '+j.characters+' کاراکتر · فرمت: '+(j.detected_format||'نامشخص'));
+    loadJobs();
+  }catch(err){
+    stS.textContent='✗ Error';
+    notice.className='notice err';notice.textContent='خطا: '+err.message;
+  }
+};
+
+// recent jobs list (workroom files are persisted per job)
+async function loadJobs(){
+  try{
+    const box=document.querySelector('#jobs');
+    const r=await fetch('/api/status');const j=await r.json();
+    box.innerHTML='<div class="vsc-tree-item"><span class="fi">🗂</span> workrooms<span class="badge">'+j.workrooms+'</span></div>'
+      +(box.dataset.hint||'');
+    if(!box.dataset.hint){box.dataset.hint='<div class="vsc-tree-item" style="color:#858585">آخرین job ها بعد از هر اجرا به‌روز می‌شوند</div>';box.innerHTML+=box.dataset.hint;}
+  }catch(e){}
+}
+loadJobs();
+</script>
+</body>
+</html>
