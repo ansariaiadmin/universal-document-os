@@ -123,8 +123,24 @@ function render(text){
   gut.innerHTML=Array.from({length:n},(_,i)=>i+1).join('<br>');
 }
 
+
+// v4.0 — API key support (X-API-Key). Key is asked once and kept in sessionStorage.
+let apiKey = sessionStorage.getItem('udo_api_key') || '';
+async function api(path, opts){
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers||{});
+  if(apiKey) opts.headers['X-API-Key'] = apiKey;
+  const r = await fetch(path, opts);
+  if(r.status === 401){
+    const k = prompt('این سرور کلید API می‌خواهد. کلید خود را وارد کنید:');
+    if(k){ apiKey = k.trim(); sessionStorage.setItem('udo_api_key', apiKey); return api(path, opts); }
+    throw new Error('unauthorized — no API key provided');
+  }
+  return r;
+}
+
 async function refreshCounts(){
-  try{const r=await fetch('/api/status');const j=await r.json();
+  try{const r=await api('/api/status');const j=await r.json();
     stC.textContent=`uploads: ${j.uploads} · outputs: ${j.outputs} · workrooms: ${j.workrooms}`;}catch(e){}
 }
 refreshCounts(); setInterval(refreshCounts,5000);
@@ -137,7 +153,7 @@ f.onsubmit=async e=>{
   const fd=new FormData();
   fd.append('file',fi.files[0]);fd.append('operation',document.querySelector('#op').value);fd.append('target_format',document.querySelector('#target').value);
   try{
-    const r=await fetch('/api/process',{method:'POST',body:fd});
+    const r=await api('/api/process',{method:'POST',body:fd});
     const j=await r.json();
     if(!r.ok){throw new Error(j.detail||('HTTP '+r.status));}
     render(JSON.stringify(j,null,2));
@@ -157,7 +173,7 @@ f.onsubmit=async e=>{
 async function loadJobs(){
   try{
     const box=document.querySelector('#jobs');
-    const r=await fetch('/api/status');const j=await r.json();
+    const r=await api('/api/status');const j=await r.json();
     box.innerHTML='<div class="vsc-tree-item"><span class="fi">🗂</span> workrooms<span class="badge">'+j.workrooms+'</span></div>'
       +(box.dataset.hint||'');
     if(!box.dataset.hint){box.dataset.hint='<div class="vsc-tree-item" style="color:#858585">آخرین job ها بعد از هر اجرا به‌روز می‌شوند</div>';box.innerHTML+=box.dataset.hint;}

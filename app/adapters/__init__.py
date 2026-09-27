@@ -180,11 +180,27 @@ def extract(path: pathlib.Path, fmt: str | None = None) -> str:
     extractor = get_extractor(fmt)
     if extractor is None:
         # Unknown format -> treat as textlike if possible else unsupported
-        if fmt.upper() in ("UNKNOWN",):
+        if fmt.upper() == "UNKNOWN":
             raise UnsupportedFormat(fmt, "unknown format")
-        # For formats like DOC, PPT, XLS, ODS, ODP which we haven't implemented fully
-        if fmt.upper() in ("DOC", "PPT", "XLS", "ODS", "ODP"):
-            raise UnsupportedFormat(fmt, f"{fmt} legacy format requires additional library; convert to DOCX/PPTX/XLSX/ODT")
+        # Legacy binary Office formats (DOC/PPT/XLS): OLE containers.
+        # v3.4 — real antiword-based extraction when available; otherwise an
+        # honest, actionable error instead of silent failure.
+        if fmt.upper() in ("DOC", "PPT", "XLS"):
+            if fmt.upper() == "DOC":
+                from app.adapters.legacy import extract_doc
+
+                try:
+                    return extract_doc(path)
+                except Exception as e:
+                    raise UnsupportedFormat(fmt, str(e))
+            raise UnsupportedFormat(
+                fmt, f"{fmt} legacy format requires additional library; convert to DOCX/PPTX/XLSX/ODT"
+            )
+        # OpenDocument spreadsheets/presentations reuse the ODT zip-XML adapter.
+        if fmt.upper() in ("ODS", "ODP"):
+            odt = get_extractor("ODT")
+            if odt is not None:
+                return odt(path)
         # Try text fallback
         try:
             return path.read_text(encoding="utf-8", errors="replace")

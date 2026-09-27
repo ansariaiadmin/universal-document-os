@@ -1,10 +1,12 @@
 """Universal Document OS — FastAPI application entry point."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -23,11 +25,24 @@ from app.config import (
     WORKROOMS,
     ensure_dirs,
 )
+from app.jobs import JOBS
 from app.security import resolve_within, sanitize_filename
 
 logger = logging.getLogger("udo")
 
 ensure_dirs()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """v3.6 — graceful startup/shutdown hooks."""
+    from app.lifecycle import configure_json_logging, graceful_shutdown
+
+    configure_json_logging()
+    logger.info("Universal Document OS %s started", APP_VERSION)
+    yield
+    await graceful_shutdown(_app)
+
 
 app = FastAPI(
     title=APP_NAME,
@@ -35,9 +50,27 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url=None,
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 app.mount("/static", StaticFiles(directory=BASE / "app/static"), name="static")
 templates = Jinja2Templates(directory=BASE / "app/templates")
+
+# --- v3.5: optional API-key guard + Prometheus metrics -------------------
+from app.auth import api_key_guard  # noqa: E402
+from app.metrics import metrics_response, request_counter  # noqa: E402
+
+app.middleware("http")(api_key_guard)
+
+
+@app.middleware("http")
+async def count_requests(request: Request, call_next):
+    request_counter.labels(request.method).inc()
+    return await call_next(request)
+
+
+@app.get("/metrics")
+async def metrics():
+    return metrics_response()
 
 
 def audit(event: str, **kw) -> None:
@@ -111,7 +144,8 @@ async def process(
             out.write(chunk)
 
     fmt = detect(src)
-    text = extract_text(src)
+    # Extraction is CPU-bound — run it off the event loop so uploads stay snappy.
+    text = await asyncio.to_thread(extract_text, src)
     result = {
         "job_id": job,
         "filename": safe,
@@ -134,7 +168,68 @@ async def process(
         outp.write_text(text, encoding="utf-8")
         result["download"] = f"/api/download/{outp.name}"
         result["status"] = "READY"
+
+    # Register terminal state in the live job store for polling clients.
+    # create() first so the record exists even when finish() races a restart.
+    JOBS.create(job, filename=safe, format=fmt)
+    JOBS.finish(job, result["status"], result)
     return JSONResponse(result)
+
+
+@app.get("/api/job/{job_id}")
+async def job_status(job_id: str):
+    """Poll a processing job (v3.3).
+
+    Reads the in-memory store first; falls back to the persisted workroom
+    record on disk so polling survives process reloads and multi-worker
+    deployments. Returns 404 for unknown/expired jobs.
+    """
+    rec = JOBS.get(job_id)
+    if rec is None:
+        rec = _workroom_record(job_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="job not found or expired")
+    return rec
+
+
+def _workroom_record(job_id: str) -> dict | None:
+    """Load a persisted workroom file as a job record (disk fallback)."""
+    path = resolve_within(WORKROOMS, f"{job_id}.json")
+    if path is None:  # unknown id or traversal attempt — treat as missing
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return {
+        "job_id": job_id,
+        "state": data.get("status", "ANALYZED"),
+        "created_at": path.stat().st_mtime,
+        "finished_at": path.stat().st_mtime,
+        "result": data,
+    }
+
+
+@app.get("/api/jobs")
+async def jobs_list():
+    """v3.6 — lightweight index of live workrooms on disk (newest first)."""
+    items = []
+    for f in sorted(WORKROOMS.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:50]:
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            items.append(
+                {
+                    "job_id": data.get("job_id", f.stem),
+                    "filename": data.get("filename"),
+                    "format": data.get("detected_format"),
+                    "status": data.get("status"),
+                    "size_bytes": data.get("size_bytes"),
+                    "mtime": f.stat().st_mtime,
+                }
+            )
+        except (OSError, json.JSONDecodeError):
+            continue
+    return {"count": len(items), "jobs": items}
 
 
 @app.get("/api/download/{name}")

@@ -6,8 +6,10 @@ from pathlib import Path
 
 BASE = Path(os.getenv("BASE_DIR", Path(__file__).resolve().parent.parent))
 
-# Data directories (overridable via DATA_DIR for containerized/deployed setups)
-DATA = BASE / os.getenv("DATA_DIR", "data")
+# Data directories (overridable via DATA_DIR for containerized/deployed setups).
+# An absolute DATA_DIR is honored as-is; a relative one resolves under BASE.
+_data_env = os.getenv("DATA_DIR", "data")
+DATA = Path(_data_env) if Path(_data_env).is_absolute() else BASE / _data_env
 UPLOADS = DATA / "uploads"
 OUTPUTS = DATA / "outputs"
 WORKROOMS = DATA / "workrooms"
@@ -19,7 +21,7 @@ PREVIEW_CHARS = int(os.getenv("PREVIEW_CHARS", 5000))
 
 # App metadata — single version source
 APP_NAME = "Universal Document OS"
-APP_VERSION = os.getenv("APP_VERSION", "3.2.7")
+APP_VERSION = os.getenv("APP_VERSION", "4.0.0")
 
 def ensure_dirs() -> None:
     """Create runtime directories if missing."""

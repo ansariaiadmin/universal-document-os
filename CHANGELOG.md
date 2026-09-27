@@ -3,6 +3,33 @@
 All notable changes to Universal Document OS are documented here.
 Versions follow SemVer; the single source of truth for the running version is `app/config.py` (`APP_VERSION`).
 
+## [v4.0.0] - 2026-09-27 Ñ Enterprise Milestone: Jobs, Auth, Metrics, Legacy Formats, Lifecycle
+
+### Job Orchestration (v3.3)
+- New `app/jobs.py`: thread-safe in-memory `JobStore` with TTL expiry and state stats.
+- `POST /api/process` registers every job; new endpoints `GET /api/job/{id}` (polling, with a disk-backed workroom fallback so polling survives process reloads and multi-worker deployments) and `GET /api/jobs` (newest-first index, capped at 50).
+
+### API Authentication (v3.5)
+- New `app/auth.py`: opt-in `X-API-Key` middleware. Set `UDO_API_KEYS=key1,key2` to protect all `/api/*` routes except health/docs probes; unset keeps dev mode open. Constant-shape comparison over configured keys.
+- The VS Code panel now prompts once on `401`, stores the key in `sessionStorage`, and replays it automatically.
+
+### Observability (v3.5)
+- New `app/metrics.py`: Prometheus exposition at `GET /metrics`. Uses `prometheus_client` when installed, otherwise a dependency-free counter that still renders valid text format Ñ the endpoint never 500s.
+
+### Legacy Office Formats (v3.4)
+- New `app/adapters/legacy.py`: real `.doc` text extraction via `antiword` (fixed argv, no shell, 60s timeout). When the binary is missing, users get an actionable error naming the exact install command instead of silent failure.
+
+### Lifecycle & Logging (v3.6)
+- New `app/lifecycle.py`: structured JSON log formatter (one object per line Ñ Loki/CloudWatch-ready) and graceful startup/shutdown hooks wired through FastAPI `lifespan`; expired jobs swept on boot.
+
+### Reliability fixes found during integration testing
+- `DATA_DIR` now honors absolute paths (previously silently joined under `BASE_DIR`).
+- Job polling falls back to persisted workroom records when the in-memory store is cold.
+- Unknown/traversal job IDs return a clean 404 instead of crashing.
+
+### Testing
+- Suite grew to **49 tests** (new `tests/test_enterprise.py`: job store lifecycle/TTL, API polling, auth allow/deny, metrics format, legacy error messaging, JSON log validity). `ruff check app/ tests/` clean.
+
 ## [v3.2.7] - 2026-09-27 â€” VS Code Panel & Ownership
 
 ### UI/UX
