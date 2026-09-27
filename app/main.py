@@ -38,12 +38,28 @@ ensure_dirs()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """v3.6 — graceful startup/shutdown hooks."""
+    """v3.6 — graceful startup/shutdown hooks; v4.2 adds periodic job sweep."""
+    import asyncio
+
     from app.lifecycle import configure_json_logging, graceful_shutdown
 
     configure_json_logging()
     logger.info("Universal Document OS %s started", APP_VERSION)
+    stop = asyncio.Event()
+
+    async def _sweeper():
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=_SWEEP_INTERVAL)
+            except TimeoutError:
+                removed = JOBS.sweep()
+                if removed:
+                    logger.info("job sweep removed %d expired records", removed)
+
+    sweeper = asyncio.create_task(_sweeper())
     yield
+    stop.set()
+    await sweeper
     await graceful_shutdown(_app)
 
 
@@ -73,6 +89,10 @@ app.middleware("http")(rate_limit_guard)
 async def count_requests(request: Request, call_next):
     request_counter.labels(request.method).inc()
     return await call_next(request)
+
+
+# v4.2 — periodic TTL sweep so the durable job store never grows unbounded.
+_SWEEP_INTERVAL = 300.0
 
 
 @app.get("/metrics")
@@ -183,12 +203,28 @@ async def process(
     )
     audit("ANALYZE", job_id=job, filename=safe, format=fmt, operation=operation, size=size)
 
-    # For text-like formats, produce a real downloadable output.
-    if operation in {"copy", "export_text"} and text and target_format in {"txt", "md"}:
-        outp = OUTPUTS / f"{job}.{target_format}"
-        outp.write_text(text, encoding="utf-8")
-        result["download"] = f"/api/download/{outp.name}"
-        result["status"] = "READY"
+    # v4.2 — real conversion engine: any extracted text exports to txt/md,
+    # markup sources render to styled HTML. Unknown targets fail cleanly.
+    if operation in {"copy", "export_text", "convert"} and text:
+        from app.converter import ConversionError, can_convert, convert
+
+        if target_format not in {"same", ""} and not can_convert(fmt, target_format):
+            src.unlink(missing_ok=True)
+            audit("CONVERT_REJECTED", job_id=job, format=fmt, target=target_format)
+            raise HTTPException(
+                status_code=400,
+                detail=f"conversion {fmt.lower()}->{target_format} not supported "
+                       "(targets: txt, md, html)",
+            )
+        if target_format in {"txt", "md", "html"}:
+            try:
+                rendered = await asyncio.to_thread(convert, text, to=target_format)
+            except ConversionError as ce:
+                raise HTTPException(status_code=501, detail=str(ce))
+            outp = OUTPUTS / f"{job}.{target_format}"
+            outp.write_text(rendered, encoding="utf-8")
+            result["download"] = f"/api/download/{outp.name}"
+            result["status"] = "READY"
 
     # Register terminal state in the live job store for polling clients.
     # create() first so the record exists even when finish() races a restart.

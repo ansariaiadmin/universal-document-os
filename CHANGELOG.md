@@ -3,7 +3,21 @@
 All notable changes to Universal Document OS are documented here.
 Versions follow SemVer; the single source of truth for the running version is `app/config.py` (`APP_VERSION`).
 
-## [v4.0.0] - 2026-09-27 � Enterprise Milestone: Jobs, Auth, Metrics, Legacy Formats, Lifecycle
+## [4.2.0] - 2026-09-27 — Durable Jobs & Real Conversion Engine
+
+### Job Orchestration, Production-Grade
+- `app/jobs.py` rewritten as a **SQLite-backed durable job store** (WAL mode, per-thread connections): records now survive process restarts and are shared across workers — `/api/job/{id}` polling no longer loses state on reload.
+- Background TTL sweeper in the app lifespan prunes expired jobs every 5 minutes; new `JobStore.age()` test hook replaces private-state poking in tests.
+
+### Conversion Engine (`app/converter.py`)
+- Real format-to-format output for text-like sources: any extracted text → **TXT / MD**, and Markdown/TXT/HTML sources → styled **HTML** (tables, fenced code, TOC via python-markdown extensions).
+- Honest failure model: unsupported pairs return HTTP 400 with a machine-readable reason; missing dependencies surface as HTTP 501 — never a fabricated file.
+- New dependency: `markdown>=3.6`.
+
+### Tests
+- Suite grows to **76 passing** (new `tests/test_v42.py`: durability-across-reload, conversion pairs, rejection paths, sweep task wiring).
+
+## [v4.0.0] - 2026-09-27 — Enterprise Milestone: Jobs, Auth, Metrics, Legacy Formats, Lifecycle
 
 ### Job Orchestration (v3.3)
 - New `app/jobs.py`: thread-safe in-memory `JobStore` with TTL expiry and state stats.
@@ -14,13 +28,13 @@ Versions follow SemVer; the single source of truth for the running version is `a
 - The VS Code panel now prompts once on `401`, stores the key in `sessionStorage`, and replays it automatically.
 
 ### Observability (v3.5)
-- New `app/metrics.py`: Prometheus exposition at `GET /metrics`. Uses `prometheus_client` when installed, otherwise a dependency-free counter that still renders valid text format � the endpoint never 500s.
+- New `app/metrics.py`: Prometheus exposition at `GET /metrics`. Uses `prometheus_client` when installed, otherwise a dependency-free counter that still renders valid text format — the endpoint never 500s.
 
 ### Legacy Office Formats (v3.4)
 - New `app/adapters/legacy.py`: real `.doc` text extraction via `antiword` (fixed argv, no shell, 60s timeout). When the binary is missing, users get an actionable error naming the exact install command instead of silent failure.
 
 ### Lifecycle & Logging (v3.6)
-- New `app/lifecycle.py`: structured JSON log formatter (one object per line � Loki/CloudWatch-ready) and graceful startup/shutdown hooks wired through FastAPI `lifespan`; expired jobs swept on boot.
+- New `app/lifecycle.py`: structured JSON log formatter (one object per line — Loki/CloudWatch-ready) and graceful startup/shutdown hooks wired through FastAPI `lifespan`; expired jobs swept on boot.
 
 ### Reliability fixes found during integration testing
 - `DATA_DIR` now honors absolute paths (previously silently joined under `BASE_DIR`).

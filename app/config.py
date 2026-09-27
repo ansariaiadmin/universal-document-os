@@ -24,7 +24,7 @@ MAX_TEXT_CHARS = int(os.getenv("MAX_TEXT_CHARS", 2_000_000))               # ext
 
 # App metadata — single version source
 APP_NAME = "Universal Document OS"
-APP_VERSION = os.getenv("APP_VERSION", "4.1.1")
+APP_VERSION = os.getenv("APP_VERSION", "4.2.0")
 
 def ensure_dirs() -> None:
     """Create runtime directories if missing."""

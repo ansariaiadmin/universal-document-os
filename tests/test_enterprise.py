@@ -58,8 +58,8 @@ def test_job_store_expiry(monkeypatch):
     store = JobStore(ttl_seconds=0)
     store.create("j2")
     store.finish("j2", "DONE", {})
-    # force it into the past
-    store._jobs["j2"]["finished_at"] -= 10
+    # force it into the past via the public aging helper
+    store.age("j2", 10)
     assert store.sweep() == 1
     assert store.get("j2") is None
 

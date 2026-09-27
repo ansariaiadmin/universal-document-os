@@ -10,7 +10,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](docker-compose.yml)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Current version:** v4.0.0 (single source of truth: `APP_VERSION` in [`app/config.py`](app/config.py)).
+**Current version:** v4.2.0 (single source of truth: `APP_VERSION` in [`app/config.py`](app/config.py)).
 
 ---
 

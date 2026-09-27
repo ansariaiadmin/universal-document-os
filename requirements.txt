@@ -14,3 +14,4 @@ httpx==0.28.1
 pytesseract==0.3.13
 pillow==11.2.1
 # rapidocr-onnxruntime  # optional zero-binary fallback OCR — uncomment to enable
+markdown>=3.6
