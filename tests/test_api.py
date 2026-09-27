@@ -4,13 +4,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from fastapi.testclient import TestClient
 
-from app.main import app
-
-client = TestClient(app)
-
-def test_status_endpoint():
+def test_status_endpoint(client):
     resp = client.get("/api/status")
     assert resp.status_code == 200
     data = resp.json()
@@ -18,12 +13,12 @@ def test_status_endpoint():
     assert "outputs" in data
     assert "workrooms" in data
 
-def test_landing_page():
+def test_landing_page(client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "html" in resp.headers.get("content-type", "").lower() or "<html" in resp.text.lower() or "<!doctype" in resp.text.lower()
 
-def test_process_csv():
+def test_process_csv(client):
     content = b"col1,col2\nval1,val2\n"
     resp = client.post("/api/process", files={"file": ("data.csv", content, "text/csv")}, data={"operation": "analyze"})
     assert resp.status_code == 200
@@ -31,7 +26,7 @@ def test_process_csv():
     assert j["detected_format"] == "CSV"
     assert "col1" in j["preview"]
 
-def test_process_md():
+def test_process_md(client):
     content = b"# Hello\nThis is markdown"
     resp = client.post("/api/process", files={"file": ("readme.md", content, "text/markdown")}, data={"operation": "analyze"})
     assert resp.status_code == 200
@@ -39,7 +34,7 @@ def test_process_md():
     assert j["detected_format"] in ("MARKDOWN", "MD", "TXT", "MARKDOWN") or "MD" in j["detected_format"] or j["detected_format"] == "MARKDOWN"
     assert "Hello" in j["preview"]
 
-def test_process_export_txt():
+def test_process_export_txt(client):
     content = b"exportable text content"
     resp = client.post("/api/process", files={"file": ("note.txt", content, "text/plain")}, data={"operation": "export_text", "target_format": "txt"})
     assert resp.status_code == 200

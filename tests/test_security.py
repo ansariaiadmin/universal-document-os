@@ -5,12 +5,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from fastapi.testclient import TestClient
-
-from app.main import OUTPUTS, app
 from app.security import resolve_within, sanitize_filename
-
-client = TestClient(app)
 
 
 # ---------- filename sanitization ----------
@@ -33,7 +28,7 @@ def test_sanitize_blocks_hidden_and_empty():
 
 # ---------- download path safety ----------
 
-def test_download_rejects_traversal(data_tree):
+def test_download_rejects_traversal(client, data_tree):
     secret = data_tree["outputs"].parent / "secret.txt"
     secret.write_text("TOP SECRET", encoding="utf-8")
     resp = client.get("/api/download/..%2Fsecret.txt")
@@ -43,11 +38,11 @@ def test_download_rejects_traversal(data_tree):
     assert "TOP SECRET" not in resp.text + resp2.text
 
 
-def test_resolve_within_returns_none_for_outside():
-    assert resolve_within(OUTPUTS, "../config.py") is None
+def test_resolve_within_returns_none_for_outside(data_tree):
+    assert resolve_within(data_tree["outputs"], "../config.py") is None
 
 
-def test_download_roundtrip(data_tree):
+def test_download_roundtrip(client, data_tree):
     name = "abc123.txt"
     (data_tree["outputs"] / name).write_text("hello download", encoding="utf-8")
     resp = client.get(f"/api/download/{name}")
@@ -57,7 +52,8 @@ def test_download_roundtrip(data_tree):
 
 # ---------- upload processing ----------
 
-def test_process_sanitizes_malicious_filename(data_tree):
+def test_process_sanitizes_malicious_filename(client, data_tree):
+    before = set(p.name for p in data_tree["uploads"].iterdir())
     resp = client.post(
         "/api/process",
         files={"file": ("../../evil.txt", b"payload", "text/plain")},
@@ -68,28 +64,28 @@ def test_process_sanitizes_malicious_filename(data_tree):
     assert "/" not in j["filename"]
     assert "\\" not in j["filename"]
     assert ".." not in j["filename"]
-    # all written files stay inside the uploads dir
-    names = [p.name for p in data_tree["uploads"].iterdir()]
-    assert len(names) == 1
+    # exactly one new file written, and it stays inside the uploads dir
+    after = set(p.name for p in data_tree["uploads"].iterdir())
+    assert len(after - before) == 1
     escaped = list(data_tree["uploads"].parent.parent.rglob("evil*"))
-    assert escaped == []
+    assert [p for p in escaped if data_tree["uploads"] not in p.parents] == []
 
 
-def test_process_rejects_oversized_file(data_tree, monkeypatch):
-    import app.main as main
-
-    monkeypatch.setattr(main, "MAX_UPLOAD_BYTES", 10)
+def test_process_rejects_oversized_file(app_main, client, data_tree, monkeypatch):
+    monkeypatch.setattr(app_main, "MAX_UPLOAD_BYTES", 10)
+    before = set(p.name for p in data_tree["uploads"].iterdir())
     resp = client.post(
         "/api/process",
         files={"file": ("big.txt", b"x" * 100, "text/plain")},
         data={"operation": "analyze"},
     )
     assert resp.status_code == 413
-    # no leftover file in uploads
-    assert list(data_tree["uploads"].iterdir()) == []
+    # no leftover file from the rejected upload
+    after = set(p.name for p in data_tree["uploads"].iterdir())
+    assert after == before
 
 
-def test_workroom_written_per_job(data_tree):
+def test_workroom_written_per_job(client, data_tree):
     resp = client.post(
         "/api/process",
         files={"file": ("note.txt", b"workroom content", "text/plain")},
@@ -104,11 +100,11 @@ def test_workroom_written_per_job(data_tree):
 
 # ---------- version consistency ----------
 
-def test_version_consistent_across_app():
+def test_version_consistent_across_app(client, app_main):
     from app.config import APP_VERSION
 
     assert client.get("/api/health").json()["version"] == APP_VERSION
-    assert app.version == APP_VERSION
+    assert app_main.app.version == APP_VERSION
 
 
 # ---------- notification inbox persistence bug ----------

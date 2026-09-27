@@ -5,14 +5,11 @@ import tempfile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from fastapi.testclient import TestClient
-
 from app.adapters import SUPPORTED_FORMATS, UnsupportedFormat, extract, get_extractor
-from app.main import app, detect
+from app.main import detect
 
-client = TestClient(app)
 
-def test_detect_formats():
+def test_detect_formats(app_main):
     assert detect(pathlib.Path("file.pdf")) == "PDF"
     assert detect(pathlib.Path("file.docx")) == "DOCX"
     assert detect(pathlib.Path("file.xlsx")) == "XLSX"
@@ -36,7 +33,7 @@ def test_get_extractor_exists():
     assert get_extractor("PPTX") is not None
     assert get_extractor("ODT") is not None
 
-def test_upload_txt():
+def test_upload_txt(client):
     # Simulate upload via API
     content = b"hello world test upload"
     resp = client.post("/api/process", files={"file": ("test.txt", content, "text/plain")}, data={"operation": "analyze", "target_format": "same"})
@@ -46,7 +43,7 @@ def test_upload_txt():
     assert data["characters"] >= len(content)
     assert "hello world" in data["preview"]
 
-def test_upload_format_endpoint_health():
+def test_upload_format_endpoint_health(client):
     resp = client.get("/api/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"
