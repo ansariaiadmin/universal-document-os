@@ -1,2 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data (uploads/outputs/workrooms/audit stay local)
+data/uploads/
+data/outputs/
+data/workrooms/
+data/audit.jsonl
+
+# Secrets
+.env
+
 # Bundles and archives
 *.bundle
