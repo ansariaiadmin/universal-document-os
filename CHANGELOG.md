@@ -3,6 +3,21 @@
 All notable changes to Universal Document OS are documented here.
 Versions follow SemVer; the single source of truth for the running version is `app/config.py` (`APP_VERSION`).
 
+## [v3.2.6] - 2026-09-27 — Real OCR Wiring & Documentation Unification
+
+### Architecture
+- **OCR pipeline is now real**: `app/ocr/tesseract_engine.py` wraps the local Tesseract binary (subprocess, no network) and is wired into `multi_engine.py` as the primary engine with graceful fallback when the binary is absent. Mock/fabricated engines removed from the active pipeline.
+- New adapter-level format detection fixes; OpenDocument adapters rebuilt as thin, table-driven modules.
+
+### Security
+- RCE vector in template rendering closed (see SECURITY.md threat model).
+
+### Documentation
+- All 10 core docs (README, ARCHITECTURE, SECURITY, API, INSTALL, CONTRIBUTING, ROADMAP, AGENTS, USER_GUIDE_EN, SETUP-WIZARD-FA) rewritten line-by-line against actual source behavior: port 8000, `/api/health`, correct Swagger path (`/api/docs`), version sourced from `APP_VERSION`, no fabricated claims.
+
+### Testing
+- Suite grew to **40 tests** (new `tests/test_ocr_wiring.py` covers engine selection, fallback, and subprocess isolation). `ruff check app/` clean.
+
 ## [v3.2.4] - 2026-09-27 — Audit & Hardening (production-readiness)
 
 ### Security

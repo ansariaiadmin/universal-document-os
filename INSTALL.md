@@ -1,226 +1,139 @@
-# راهنمای کامل Universal Document OS — Document Processing — برای افراد غیر فنی
+# راهنمای نصب — Universal Document OS
 
-**نسخه:** v0.9.3 — نصب خودکار + آپدیت خودکار
-**برای:** کسی که هیچ دانش فنی ندارد، فقط می‌خواهد استفاده کند
-
----
-
-## 🎯 این برنامه چیست؟
-
-Universal Document OS — Document Processing — سیستم عامل پردازش اسناد
-- **تکنولوژی:** FastAPI + Adapter Registry
-- **آدرس پیش‌فرض:** http://localhost:8000 (Landing) و http://localhost:8000/app (Panel)
-- **نوع:** web
+**نسخه:** v3.2.4 · **مخاطب:** کاربر غیرفنی (نصب با داکر) و توسعه‌دهنده (نصب دستی)
+این راهنما فقط چیزهایی را توضیح می‌دهد که واقعاً در این نسخه وجود دارد: یک وب‌اپ محلی برای آپلود سند، استخراج متن، و دانلود خروجی متنی/مارک‌داون.
 
 ---
 
-## 🚀 نصب در ۳ قدم (کمتر از ۵ دقیقه)
+## فهرست
 
-### قدم ۱: دانلود
+- [۱. پیش‌نیازها](#۱-پیش‌نیازها)
+- [۲. نصب سریع با داکر (توصیه‌شده)](#۲-نصب-سریع-با-داکر-توصیه‌شده)
+- [۳. نصب روی ویندوز](#۳-نصب-روی-ویندوز)
+- [۴. نصب دستی بدون داکر (توسعه‌دهنده‌ها)](#۴-نصب-دستی-بدون-داکر-توسعه‌دهنده‌ها)
+- [۵. اولین استفاده](#۵-اولین-استفاده)
+- [۶. دستورات روزمره](#۶-دستورات-روزمره)
+- [۷. آپدیت و بازگردانی](#۷-آپدیت-و-بازگردانی)
+- [۸. عیب‌یابی](#۸-عیب‌یابی)
+- [۹. امنیت در یک نگاه](#۹-امنیت-در-یک-نگاه)
+
+---
+
+## ۱. پیش‌نیازها
+
+| مورد | لینک / بررسی |
+|---|---|
+| Docker + Docker Compose | <https://docs.docker.com/get-docker/> — با `docker --version` چک کنید |
+| فضای دیسک ≥ ۲ گیگ | `df -h .` |
+| پورت ۸۰۰0 آزاد | اگر اشغال بود در فایل `.env` مقدار `PORT` را عوض کنید |
+| Git | <https://git-scm.com> |
+
+> اینترنت فقط برای دانلود کد و ساخت ایمیج لازم است؛ بعد از نصب، برنامه کاملاً آفلاین کار می‌کند. هیچ فایلی به سرویس خارجی فرستاده نمی‌شود.
+
+## ۲. نصب سریع با داکر (توصیه‌شده)
+
+سه دستور، کمتر از پنج دقیقه:
+
 ```bash
 git clone https://github.com/ansariaiadmin/universal-document-os.git
 cd universal-document-os
-```
-یا از صفحه Releases فایل zip را دانلود و باز کنید.
-
-### قدم ۲: نصب خودکار (فقط یک دستور!)
-```bash
-chmod +x install.sh
-./install.sh
-```
-این اسکریپت **خودکار**:
-- Docker را چک می‌کند (اگر نیست راهنما می‌دهد)
-- فایل `.env` را از `.env.example` می‌سازد و رمزهای تصادفی می‌گذارد
-- `docker compose up --build -d` را اجرا می‌کند
-- ۳۰ ثانیه صبر می‌کند تا سرویس آماده شود
-- آدرس و رمز ورود را نشان می‌دهد
-
-**برای ویندوز:**
-```bat
-install.bat
-```
-یا روی `install.sh` با Git Bash دوبار کلیک کنید.
-
-### قدم ۳: استفاده
-مرورگر را باز کنید:
-```
-http://localhost:8000 (Landing) و http://localhost:8000/app (Panel)
-```
-- ورود: بدون لاگین - محلی
-- سلامت: http://localhost:8000/api/health
-
-**تمام!** 🎉
-
----
-
-## 🔄 آپدیت (به‌روزرسانی)
-
-هر وقت نسخه جدید آمد:
-
-```bash
-./update.sh
+chmod +x install.sh && ./install.sh
 ```
 
-این اسکریپت:
-1. بکاپ خودکار می‌گیرد به `backups/YYYYMMDD-HHMMSS/`
-2. آخرین کد را از GitHub می‌گیرد (`git pull`)
-3. Docker images را آپدیت می‌کند
-4. دوباره می‌سازد و اجرا می‌کند
-5. سلامت را چک می‌کند، اگر خراب بود راه بازگردانی نشان می‌دهد
+اسکریپت نصب به‌ترتيب این کارها را می‌کند (لاگ هر مرحله را می‌بینید):
 
-**بازگردانی اگر آپدیت خراب شد:**
-```bash
-cp backups/20240101-120000/.env .env
-docker compose up -d
+1. بررسی Docker، دیسک و پورت‌ها
+2. ساخت فایل `.env` از روی `.env.example` (اگر وجود ندارد) و تنظیم مجوز `600`
+3. `docker compose up --build -d` — ساخت ایمیج و اجرای سرویس
+4. صبر تا endpoint سلامت جواب دهد، سپس نمایش آدرس‌ها
+
+پایان موفق = این سه خط آخر:
+
+```text
+🌐 http://localhost:8000 — لندینگ، و http://localhost:8000/app — پنل اسناد
+📚 API Docs: http://localhost:8000/api/docs
 ```
 
----
+## ۳. نصب روی ویندوز
 
-## 🛠️ دستورات روزانه
+1. Docker Desktop را نصب و روشن کنید.
+2. مخزن را Clone یا Download zip کنید و باز کنید.
+3. روی `install.bat` دوبار کلیک کنید (یا در PowerShell داخل پوشه اجرا کنید).
+4. مرورگر: <http://localhost:8000>
 
-| دستور | توضیح فارسی | توضیح انگلیسی |
-|-------|-------------|---------------|
-| `./install.sh` | نصب اولیه خودکار | Auto install |
-| `./update.sh` | آپدیت به آخرین نسخه | Update to latest |
-| `./start.sh` | شروع سرویس | Start |
-| `./stop.sh` | توقف سرویس | Stop |
-| `./status.sh` | وضعیت + سلامت | Status + health |
-| `./logs.sh` | دیدن لاگ‌ها | View logs |
-| `./backup.sh` | بکاپ گیری | Backup |
+بقیه اسکریپت‌ها هم همتای `.bat` دارند: `start.bat`، `stop.bat`، `status.bat`، `logs.bat`، `update.bat`، `backup.bat`.
 
-**مثال:**
-```bash
-./status.sh   # ببین روشن است یا نه
-./logs.sh     # اگر خطا داشت لاگ ببین
-./stop.sh     # خاموش
-./start.sh    # روشن
-```
+## ۴. نصب دستی بدون داکر (توسعه‌دهنده‌ها)
 
----
-
-## 📚 آموزش کامل بخش‌ها
-
-### ۱. داشبورد اصلی
-- آدرس: http://localhost:8000 (Landing) و http://localhost:8000/app (Panel)
-- بعد از ورود، منوی اصلی را می‌بینید
-- هر بخش یک آیکون دارد، کلیک کنید
-
-### ۲. تنظیمات (.env)
-فایل `.env` تمام رمزها و آدرس‌هاست. **دست نزنید مگر لازم باشد!**
-- اگر خراب شد: `cp .env.example .env` و دوباره `install.sh`
-- رمزها با `openssl rand -base64 32` ساخته می‌شوند
-
-### ۳. Docker چیست؟
-Docker یک جعبه است که برنامه را با همه وسایلش اجرا می‌کند، بدون اینکه کامپیوتر شما به هم بریزد.
-- `docker compose ps` → ببین چه کانتینرهایی روشن است
-- `docker compose logs -f` → لاگ زنده
-- `docker compose down` → خاموش
-- `docker compose up -d` → روشن
-
-### ۴. بکاپ و بازگردانی
-```bash
-./backup.sh
-# بکاپ در backups/2024.../ ساخته می‌شود
-# برای بازگردانی:
-cp backups/xxx/.env .env
-docker compose up -d
-```
-
-### ۵. عیب‌یابی (Troubleshooting)
-
-**مشکل: پورت اشغال است / Port already in use**
-```bash
-docker compose down
-# یا
-sudo lsof -i :8000
-# سپس
-./start.sh
-```
-
-**مشکل: Docker نصب نیست**
-- ویندوز/مک: Docker Desktop نصب کن https://docs.docker.com/get-docker/
-- لینوکس: `curl -fsSL https://get.docker.com | sh`
-
-**مشکل: .env خراب**
-```bash
-rm .env
-cp .env.example .env
-./install.sh
-```
-
-**مشکل: سرویس بالا نمی‌آید**
-```bash
-./logs.sh
-# لاگ را بخوان، معمولا رمز یا دیتابیس مشکل دارد
-./backup.sh
-./stop.sh
-./start.sh
-```
-
-### ۶. امنیت
-- `.env` را به کسی ندهید (رمزها داخلش است)
-- فقط `.env.example` را به اشتراک بگذارید
-- بکاپ‌ها را جای امن نگه دارید
-- آپدیت منظم با `./update.sh`
-
----
-
-## 🖥️ نصب بدون Docker (برای توسعه‌دهندگان)
-
-اگر Docker نمی‌خواهید:
-
-**Python:**
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # ویندوز: .venv\Scripts\activate
 pip install -r requirements.txt
-pytest -q
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+pytest -q                        # باید 29 تست سبز باشد
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-**Node:**
+همین. لاگین ندارد؛ داده‌ها در پوشه `data/` کنار کد ذخیره می‌شود.
+
+## ۵. اولین استفاده
+
+1. مرورگر → <http://localhost:8000/app>
+2. یک فایل انتخاب کنید (PDF، Word، Excel، PowerPoint، ODT، TXT، MD، CSV، JSON، HTML یا RTF)
+3. عملیات: «تحلیل» (فقط استخراج متن) یا «خروجی متن/مارک‌داون» (فایل قابل دانلود می‌سازد)
+4. نتیجه: فرمت شناسایی‌شده، تعداد کاراکترها، پیش‌نمایش متن و دکمه دانلود
+
+از طریق API هم می‌شود استفاده کرد (مثال کامل در [docs/API.md](docs/API.md)):
+
 ```bash
-npm install
-cp .env.example .env
-npm run db:migrate
-npm run dev
+curl -X POST http://localhost:8000/api/process \
+     -F "file=@sample.pdf" -F "operation=export_text" -F "target_format=md"
 ```
 
----
+**نکته صادقانه:** نسخه فعلی OCR ندارد؛ PDFهای اسکن‌شده (تصویری) متن برنمی‌گردانند. اتصال OCR به مسیر اصلی، اولین آیتم نسخه بعدی در [ROADMAP.md](ROADMAP.md) است. فرمت‌های قدیمی DOC/XLS/PPT هم شناسایی ولی استخراج نمی‌شوند — اول به DOCX/XLSX/PPTX تبدیل کنید.
 
-## 📦 ورژن‌ها و آپدیت خودکار
+## ۶. دستورات روزمره
 
-- **v1.0.0 / v0.9.0:** نسخه اولیه ۱۰/۱۰ نهایی
-- **v0.9.2 (Strict Final 10/10 True):** نسخه غیرفنی + نصب خودکار + آپدیت خودکار (همین نسخه)
+| دستور | کار |
+|---|---|
+| `./status.sh` | وضعیت کانتینر، پورت ۸۰۰۰، سلامت، دیسک/حافظه |
+| `./logs.sh` | مشاهده لاگ زنده |
+| `./stop.sh` / `./start.sh` | خاموش/روشن کردن |
+| `./backup.sh` | بکاپ زمان‌دار از `.env` و `data/` در `backups/` (۷ بکاپ آخر) |
+| `./update.sh` | بکاپ خودکار → git pull → build مجدد → بررسی سلامت |
+| `./smoke-test.sh` | تست end-to-end سلامت و کانفیگ |
 
-برای نصب نسخه خاص:
-```bash
-git clone https://github.com/ansariaiadmin/universal-document-os.git
-cd universal-document-os
-git checkout v1.0.1  # یا v0.9.1
-./install.sh
-```
+## ۷. آپدیت و بازگردانی
 
-برای آپدیت به آخرین نسخه:
 ```bash
 ./update.sh
-# یا دستی:
-git pull origin main
-./install.sh
 ```
 
+اگر آپدیت خراب شد، اسکریپت مسیر بکاپ را نشان می‌دهد:
+
+```bash
+cp backups/<تاریخ>/.env .env
+docker compose up -d
+```
+
+## ۸. عیب‌یابی
+
+| علامت | علت احتمالی | راه‌حل |
+|---|---|---|
+| `port is already allocated` | پورت ۸۰۰۰ اشغال | در `.env` مقدار `PORT` را عوض کنید و `docker compose up -d` بزنید |
+| صفحه باز نمی‌شود | سرویس پایین | `./status.sh` بعد `./logs.sh` |
+| build خطای network | بدون اینترنت/پروکسی | با اینترنت وصل دوباره: `docker compose build --no-cache` |
+| پاسخ `[UNSUPPORTED_FORMAT]` | فرمت legacy یا کتابخانه اختیاری نصب‌نشده | فایل را به فرمت مدرن تبدیل کنید؛ در نصب دستی `pip install python-pptx odfpy` |
+| `[EXTRACTION_ERROR] ... password protected` | فایل رمزدار | رمز فایل را بردارید و دوباره آپلود کنید |
+| حجم بیش از حد | فایل > ۲۵ مگابایت | `MAX_UPLOAD_BYTES` را در `.env` بالا ببرید یا فایل را کوچک کنید |
+| `.env` خراب شد | دست‌کاری | `rm .env && cp .env.example .env && ./install.sh` |
+
+## ۹. امنیت در یک نگاه
+
+- فعلاً **احراز هویت ندارد** — فقط روی ماشین خودتان یا شبکه خصوصی اجرا کنید (جزئیات: [SECURITY.md](SECURITY.md)).
+- `.env` کلید خانه شماست؛ هرگز کامیت یا ارسال نکنید (نصب‌کننده خودش مجوز ۶۰۰ می‌گذارد).
+- بکاپ‌ها شامل `.env` هستند؛ جای امن و ترجیحاً رمزنگاری‌شده نگه دارید.
+- آپدیت منظم با `./update.sh`.
+
 ---
 
-## 🆘 کمک
-
-- مستندات کامل: `README.md`
-- راهنمای فنی: `docs/USER_GUIDE_EN.md`
-- Handoff: `AGENTS.md` و `ROADMAP.md`
-- ایشو باز کن: https://github.com/ansariaiadmin/universal-document-os/issues
-
-**برای افراد کاملا غیر فنی:** فقط `install.sh` را اجرا کن، بعد مرورگر را باز کن به http://localhost:8000 (Landing) و http://localhost:8000/app (Panel) — همین!
-
----
-
-**نویسنده:** Fleet 10/10 Final Quality Campaign
-**تاریخ:** 2026-09-24
+**کمک:** سوالات فنی → [docs/API.md](docs/API.md) · معماری → [ARCHITECTURE.md](ARCHITECTURE.md) · مشارکت → [CONTRIBUTING.md](CONTRIBUTING.md) · ایشو → GitHub Issues همان مخزن.

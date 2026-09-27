@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import mimetypes
-
 import time
 import uuid
 
@@ -53,14 +51,9 @@ def audit(event: str, **kw) -> None:
 
 
 def detect(path) -> str:
-    ext = path.suffix.lower()
-    mapping = {
-        ".pdf": "PDF", ".docx": "DOCX", ".doc": "DOC", ".xlsx": "XLSX", ".xls": "XLS",
-        ".pptx": "PPTX", ".ppt": "PPT", ".odt": "ODT", ".ods": "ODS", ".odp": "ODP",
-        ".rtf": "RTF", ".csv": "CSV", ".txt": "TXT", ".md": "MARKDOWN", ".html": "HTML",
-        ".htm": "HTML", ".json": "JSON",
-    }
-    return mapping.get(ext, mimetypes.guess_type(path.name)[0] or "UNKNOWN")
+    """Canonical format detection — delegates to the adapters registry."""
+    from app.adapters import format_of
+    return format_of(path)
 
 
 def extract_text(path) -> str:

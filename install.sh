@@ -228,7 +228,7 @@ DATABASE_URL=postgresql+asyncpg://aark_admin:${SECRET_DB}@postgres:5432/aark_db
 REDIS_URL=redis://:${SECRET_DB}@redis:6379/0
 JWT_SECRET=${SECRET_JWT}
 ENCRYPTION_KEY=${SECRET_ENC}
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:8000
 NEXTAUTH_SECRET=${SECRET_JWT}
 
 
@@ -282,9 +282,9 @@ ADMIN_PASSWORD=${ADMIN_PASS}
 
 # Ports + Log — تاریکی روشن شد
 AARK_BACKEND_PORT=8000
-AARK_FRONTEND_PORT=3000
-PORT=3000
-API_PORT=3001
+# AARK_FRONTEND_PORT removed — this repo serves everything from a single FastAPI app on PORT
+PORT=8000
+# API_PORT not used in this project
 LOG_LEVEL=INFO
 ENVIRONMENT=development
 EOF
@@ -305,7 +305,7 @@ for i in {1..30}; do
   echo -n "."
   sleep 1
   if command -v curl &> /dev/null; then
-    if curl -sf http://localhost:3000 >/dev/null 2>&1 || curl -sf http://localhost:8000 >/dev/null 2>&1; then
+    if curl -sf http://localhost:8000/api/health >/dev/null 2>&1; then
       echo ""
       ok "سرویس آماده! — تاریکی روشن شد"
       break
@@ -321,8 +321,8 @@ echo -e "${GREEN}  🎉 جادو تمام! Universal Document OS آماده — 
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${BOLD}${BLUE}📍 دسترسی:${NC}"
-echo -e "${GREEN}  🌐 http://localhost:3000 — اسناد + OCR + Translation + ناتیف — تاریکی روشن شد${NC}"
-echo -e "${GREEN}  📚 API Docs: http://localhost:8000/docs${NC}"
+echo -e "${GREEN}  🌐 http://localhost:8000 — لندینگ، و http://localhost:8000/app — پنل اسناد${NC}"
+echo -e "${GREEN}  📚 API Docs: http://localhost:8000/api/docs${NC}"
 echo ""
 echo -e "${BOLD}${BLUE}✅ چک‌لیست نهایی — با هزینه — تاریکی روشن شد:${NC}"
 echo -e "  $([ "$AI_PROVIDER" != "mock" ] && echo "✅" || echo "⚠️") AI: $AI_PROVIDER — $([ "$AI_PROVIDER" = "mock" ] && echo "mock — رایگان — بعداً اضافه کن" || echo "آماده — هزینه ~0.01 دلار — تاریکی روشن شد")"
@@ -334,7 +334,7 @@ echo -e "  ✅ fallback — اگر SMS fail in_app+email — تاریکی روش
 echo -e "  ✅ throttling — 5 SMS در 1 دقیقه خلاصه — هزینه کنترل — تاریکی روشن شد"
 echo ""
 echo -e "${BOLD}${BLUE}🎯 حالا چی؟${NC}"
-echo -e "${YELLOW}  1. مرورگر → http://localhost:3000${NC}"
+echo -e "${YELLOW}  1. مرورگر → http://localhost:8000${NC}"
 echo -e "${YELLOW}  2. ./status.sh — وضعیت پرووایدرها + اعتبار — تاریکی روشن شد — جدید v3.1.0${NC}"
 echo -e "${YELLOW}  3. ./smoke-test.sh — تست کامل — SMS تست به خودت — تاریکی روشن شد — جدید v3.1.0${NC}"
 echo ""

@@ -81,7 +81,7 @@ if command -v docker &> /dev/null; then
   for i in {1..30}; do
     echo -n "."
     sleep 1
-    if curl -sf http://localhost:3000/api/health >/dev/null 2>&1 || curl -sf http://localhost:3000 >/dev/null 2>&1; then
+    if curl -sf http://localhost:8000/api/health >/dev/null 2>&1 || curl -sf http://localhost:8000/app >/dev/null 2>&1; then
       echo ""
       ok "سرویس آماده — اوکی — تاریکی روشن شد"
       break
@@ -96,8 +96,8 @@ fi
 # Health check
 echo -e "${BLUE}❤️ Health check — تاریکی روشن شد${NC}"
 if command -v curl &> /dev/null; then
-  curl -sf http://localhost:3000/api/health >/dev/null 2>&1 && ok "http://localhost:3000/api/health — اوکی" || warn "Health fail — ./logs.sh"
-  curl -sf http://localhost:3000 >/dev/null 2>&1 && ok "http://localhost:3000 — اوکی" || warn "Web fail"
+  curl -sf http://localhost:8000/api/health >/dev/null 2>&1 && ok "http://localhost:8000/api/health — اوکی" || warn "Health fail — ./logs.sh"
+  curl -sf http://localhost:8000/app >/dev/null 2>&1 && ok "http://localhost:8000/app — اوکی" || warn "Web fail"
 fi
 
 echo ""
@@ -105,7 +105,7 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}  🎉 آپدیت تمام — تاریکی روشن شد!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo -e "${BLUE}📍 http://localhost:3000 — آماده${NC}"
+echo -e "${BLUE}📍 http://localhost:8000/app — آماده${NC}"
 echo -e "${BLUE}./status.sh — وضعیت پرووایدرها — تاریکی روشن شد${NC}"
 echo -e "${BLUE}./smoke-test.sh — تست کامل — تاریکی روشن شد${NC}"
 echo ""

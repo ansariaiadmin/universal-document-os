@@ -30,7 +30,7 @@ echo ""
 
 # Ports
 echo -e "${BOLD}🌐 پورت‌ها — Ports${NC}"
-for port in 3000 5432 6379 8080; do
+for port in 8000 5432 6379 8080; do
   if command -v lsof &> /dev/null; then
     if lsof -i :$port &> /dev/null; then
       ok "Port $port — اشغال — در حال استفاده"
@@ -189,15 +189,15 @@ echo ""
 # Health
 echo -e "${BOLD}❤️ سلامت — Health${NC}"
 if command -v curl &> /dev/null; then
-  if curl -sf http://localhost:3000/api/health >/dev/null 2>&1; then
-    ok "http://localhost:3000/api/health — اوکی — سرویس روشنه"
+  if curl -sf http://localhost:8000/api/health >/dev/null 2>&1; then
+    ok "http://localhost:8000/api/health — اوکی — سرویس روشنه"
   else
-    warn "http://localhost:3000/api/health — جواب نمی‌ده — شاید هنوز بالا نیومده — 30 ثانیه صبر کن — یا ./logs.sh"
+    warn "http://localhost:8000/api/health — جواب نمی‌ده — شاید هنوز بالا نیومده — 30 ثانیه صبر کن — یا ./logs.sh"
   fi
-  if curl -sf http://localhost:3000 >/dev/null 2>&1; then
-    ok "http://localhost:3000 — اوکی — وب روشنه"
+  if curl -sf http://localhost:8000/app >/dev/null 2>&1; then
+    ok "http://localhost:8000/app (Panel) — اوکی — وب روشنه"
   else
-    warn "http://localhost:3000 — جواب نمی‌ده"
+    warn "http://localhost:8000/app — جواب نمی‌ده"
   fi
 else
   info "curl نیست — نمی‌تونم health چک کنم"
@@ -222,7 +222,7 @@ echo ""
 
 # Final
 echo -e "${BOLD}${BLUE}🎯 خلاصه — چی کار کنم؟${NC}"
-echo -e "${CYAN}  اگر همه ✅ — عالی — برو http://localhost:3000${NC}"
+echo -e "${CYAN}  اگر همه ✅ — عالی — برو http://localhost:8000/app${NC}"
 echo -e "${CYAN}  اگر ⚠️ — mock — بعداً از /admin/settings اضافه کن — رایگان${NC}"
 echo -e "${CYAN}  اگر ❌ — .env چک کن — یا ./install.sh دوباره بزن — یا ./logs.sh${NC}"
 echo ""

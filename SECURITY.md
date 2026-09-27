@@ -1,75 +1,80 @@
-# Security Policy — سیاست امنیت — v3.1.2 — تاریکی روشن شد
+# Security Policy — Universal Document OS
 
-## Supported Versions — نسخه‌های پشتیبانی شده
+**Applies to:** v3.2.4 and later · **Language of this doc:** English (Persian summary at the end)
 
-| Version | Supported |
-|---------|-----------|
-| v3.1.x  | ✅ |
-| v3.0.x  | ✅ |
-| < v3.0  | ❌ |
+---
 
-## Reporting a Vulnerability — گزارش آسیب‌پذیری
+## Supported versions
 
-**لطفاً آسیب‌پذیری را عمومی نکنید — خصوصی گزارش دهید:**
+| Version | Supported | Notes |
+|---|---|---|
+| 3.2.x | ✅ | Current hardening baseline |
+| < 3.2 | ❌ | Upgrade before reporting issues against them |
 
-- Email: security@ansariaiadmin.dev
-- GitHub: https://github.com/ansariaiadmin/universal-document-os/security/advisories/new
-- Telegram: @ansariaiadmin — برای فوری
+---
 
-**چی بگم؟**
-- توضیح آسیب‌پذیری — چیه؟ چرا خطرناکه؟
-- چطور بازتولید کنم؟ — steps to reproduce
-- نسخه — کدوم نسخه؟
-- تاثیر — چی می‌شه؟
+## Reporting a vulnerability
 
-**چی می‌شه بعد؟**
-- 24 ساعت — تایید دریافت — "گرفتیم"
-- 72 ساعت — بررسی اولیه — "خطرناکه یا نه"
-- 7 روز — فیکس — patch
-- 14 روز — ریلیز — v3.1.x — با تشکر از شما — Hall of Fame
+**Please do not open a public issue.** Use one of:
 
-## Security Best Practices — بهترین روش‌های امنیت — تاریکی روشن شد
+- GitHub private advisory: <https://github.com/ansariaiadmin/universal-document-os/security/advisories/new>
+- Email: `security@ansariaiadmin.dev`
 
-### .env — کلید خونه — باید سر جاش باشه
-- `.env` permission 600 — فقط خودت می‌تونی بخونی — `chmod 600 .env` — تاریکی روشن شد
-- `.env` تو git نیست — `.gitignore` داره — امن
-- رمزها بانکی 32 کاراکتری — `openssl rand -base64 32` — جادوگر می‌سازه — امن — تاریکی روشن شد
-- No hardcoded secrets — هیچ رمز ثابتی تو کد نیست — همه از .env — secret scan 0
+Include, as applicable: affected endpoint/file, reproduction steps, impact, suggested fix. Our commitment: acknowledgment within 24h, initial severity assessment within 72h, patch or mitigation plan within 14 days. Reporters who wish to be credited are listed in the Hall of Fame below.
 
-### Docker — امن — تاریکی روشن شد
-- Non-root USER 1001 — نه root — امن‌تر
-- HEALTHCHECK — هر 30 ثانیه — اگر down restart
-- No secrets in image — همه از env_file .env
+---
 
-### Admin — رمز امن — تاریکی روشن شد
-- رمز پیش‌فرض Admin@123 ناامنه — باید عوض کنی — جادوگر می‌پرسه — حداقل 12 کاراکتر — حرف بزرگ+کوچک+عدد+علامت
-- 2FA — به زودی — v4.0.0
+## Threat model (what we defend against today)
 
-### SMS + Telegram — امن — تاریکی روشن شد
-- SMS API Key تو .env — permission 600 — امن
-- Telegram Bot Token تو .env — permission 600 — امن — به کسی نده
-- Telegram Chat ID خصوصی — به کسی نده
+Universal Document OS is designed for **localhost / trusted-network deployment**. The security controls below assume an attacker who can send HTTP requests to the service; they do **not** yet assume a multi-tenant public deployment (that requires auth — see "Known gaps").
 
-### Backup — encrypt — تاریکی روشن شد
-- بکاپ با AES-256 encrypt — `openssl enc -aes-256-cbc` — امن
-- کلید encrypt تو .env: BACKUP_ENCRYPTION_KEY — امن نگه دار
-- بکاپ شامل .env + DB + کلیدها — همه encrypt
+### Implemented defenses (with source references)
 
-### Notification — throttling + fallback — تاریکی روشن شد
-- throttling — اگر 5 SMS در 1 دقیقه خلاصه — هزینه کنترل — spam جلوگیری
-- fallback — اگر SMS fail in_app+email — امن
+| Risk | Control | Where | Test coverage |
+|---|---|---|---|
+| Path traversal via download names (`../../etc/passwd`) | `resolve_within()` resolves symlinks and enforces containment inside `data/outputs/`; escapes return plain `404` | `app/security.py` | `tests/test_security.py` (live attack attempts incl. subdirectory tricks & symlink escape) |
+| Filename injection on upload (paths, `..`, hidden files like `.env`, shell metacharacters) | `sanitize_filename()`: basename-only, traversal collapsed, leading dot/dash stripped, charset allowlist, Persian preserved, ≤180 chars | `app/security.py` | `tests/test_security.py` |
+| Disk exhaustion via huge uploads | Streamed writes with hard byte ceiling `MAX_UPLOAD_BYTES` (default 25 MB); partial file deleted, clean `413` | `app/main.py`, `app/config.py` | `tests/test_security.py` |
+| Arbitrary file read through workroom naming | Job ids are server-generated UUIDs; user filename never forms a path component alone | `app/main.py` | pipeline tests |
+| Crash-of-the-day via malformed documents | Extraction errors become tagged strings (`[EXTRACTION_ERROR]`), never 5xx; audit write failure cannot break requests | `app/main.py`, `app/adapters` | `tests/test_extract.py` |
+| Secrets leakage | Zero hardcoded secrets; all credentials env-driven; `.env.example` contains placeholders only; CI secret scan | repo-wide | CI |
+| Container escape / privilege abuse | Multi-stage Dockerfile, non-root `appuser` (uid 1001), minimal runner, data dirs chowned at build | `Dockerfile` | manual drill |
+| Information disclosure in errors | Download failures deliberately indistinguishable (uniform 404) | `app/main.py` | security tests |
 
-## Hall of Fame — تشکر
+### Operational hardening you should do
 
-از گزارش‌دهندگان تشکر — اسمشون اینجا — با اجازه
+1. **Keep it off the public internet** until authentication ships. Bind to `127.0.0.1` or put it behind your reverse proxy with network policy.
+2. `chmod 600 .env` (the installer already does this). Never commit `.env`.
+3. Generate strong provider keys: `openssl rand -base64 32`. Rotate SMS/Telegram tokens if leaked.
+4. Treat `data/audit.jsonl` as sensitive: it records filenames and sizes. Restrict filesystem permissions on `data/`.
+5. Backups (`backup.sh`) contain `.env` — store them encrypted (`openssl enc -aes-256-cbc`) and off-machine.
+6. Update regularly (`./update.sh`); pre-3.2 releases lack the traversal/sanitization fixes.
 
-## تاریخچه — Changelog
+---
 
-- v3.1.2 — تاریکی روشن شد — logger import + web wizard — امن
-- v3.1.1 — تاریکی روشن شد — 18 باگ فیکس — امن
-- v3.1.0 — تاریکی روشن شد — 14 تاریکی روشن — امن
-- v3.0.0 — پشتیبانی صفر — امن
-- v2.0.0 — سقف 10/10 — امن
+## Known gaps (stated plainly)
 
-**نویسنده:** Fleet 10/10 — امنیت سقف — تاریکی روشن شد
-**نسخه:** v3.1.2
+These are honest limitations of v3.2.4, each tracked in [ROADMAP.md](ROADMAP.md):
+
+1. **No authentication/authorization** — anyone reaching the port can upload and list status counters. Do not deploy publicly.
+2. **No rate limiting** — a local/network peer can flood jobs (disk grows until quota tooling lands).
+3. **No TLS termination** — run behind HTTPS-capable proxy if traffic leaves the machine.
+4. **Content scanning absent** — uploaded files are stored, not virus-scanned; don't process untrusted third-party documents on a shared workstation.
+5. **Notification channels** — Telegram/SMS providers send real messages when enabled; misconfigured `TELEGRAM_CHAT_ID` could leak job info to the wrong chat. Verify config after changes.
+
+If any of these blocks your use case, open a GitHub issue to prioritize it — that's product risk, not a vulnerability report.
+
+---
+
+## Hall of Fame
+
+*No public disclosures yet.* First valid report gets a line here (with your permission).
+
+---
+
+## خلاصه فارسی
+
+- **گزارش آسیب‌پذیری فقط خصوصی:** GitHub Advisory یا ایمیل `security@ansariaiadmin.dev` — تایید ۲۴ ساعته، بررسی ۷۲ ساعته، فیکس تا ۱۴ روز.
+- **دفاعهای پیاده‌شده:** ضد Path Traversal در دانلود (با resolve کامل + symlink)، sanitize نام فایل آپلود، سقف حجم آپلود (۴۱۳ تمیز)، صفر راز در کد، داکر non-root، لاگ ممیزی append-only.
+- **کارهایی که شما باید بکنید:** فعلاً اپ را عمومی نکنید (احراز هویت هنوز نیامده)؛ `.env` با مجوز ۶۰۰؛ کلیدها را تصادفی قوی بسازید؛ بکاپ را رمزنگاری کنید؛ مرتب `./update.sh` بزنید.
+- **محدودیت‌های صادقانه:** بدون Auth، بدون Rate-Limit، بدون TLS داخلی، بدون آنتی‌ویروس روی آپلود — همه در ROADMAP ثبت شده‌اند.

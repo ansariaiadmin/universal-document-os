@@ -18,7 +18,7 @@ echo   اگر openai — هر درخواست ~0.01 دلار
 echo   Telegram — رایگان — بهترین
 echo.
 echo 🌐 Health
-curl -sf http://localhost:3000 >nul 2>&1 && echo ✅ http://localhost:3000 — اوکی || echo ⚠️ http://localhost:3000 — خاموش
+curl -sf http://localhost:8000/app >nul 2>&1 && echo ✅ http://localhost:8000/app — اوکی || echo ⚠️ http://localhost:8000/app — خاموش
 curl -sf http://localhost:8000 >nul 2>&1 && echo ✅ http://localhost:8000 — اوکی || echo ⚠️ http://localhost:8000 — خاموش
 echo.
 pause

@@ -108,7 +108,7 @@ docker compose ps
 
 echo.
 echo 🎉 جادو تمام! universal-document-os آماده — تاریکی روشن شد! 🎉
-echo 🌐 http://localhost:3000 یا http://localhost:8000
+echo 🌐 http://localhost:8000/app یا http://localhost:8000
 echo ✅ .env permission 600 — امن — تاریکی روشن شد
 echo ✅ idempotency — دوباره بزنی نمی‌پره — تاریکی روشن شد
 echo ✅ هزینه: SMS هر پیامک ~120 تومان — AI هر درخواست ~0.01 دلار — Telegram رایگان — تاریکی روشن شد

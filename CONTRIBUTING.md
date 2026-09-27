@@ -1,81 +1,79 @@
-# Contributing — راهنمای مشارکت — v3.1.2 — تاریکی روشن شد
+# Contributing to Universal Document OS
 
-**نسخه:** v3.1.2 — سقف 10/10 — تاریکی روشن شد
-**برای:** همه — حتی اگر غیر فنی باشی!
+Thanks for being here. This project values **small, verifiable changes** and **documentation that matches the code**. The rules below are what CI actually enforces — not aspirational style notes.
 
-## چطور مشارکت کنم؟ — 3 قدم ساده
+---
 
-### قدم 1: Fork + Clone — مثل دانلود فیلم
+## 1. Get set up (5 minutes)
 
 ```bash
 git clone https://github.com/ansariaiadmin/universal-document-os.git
 cd universal-document-os
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+pytest -q          # expect: 29 passed
+ruff check app/    # expect: All checks passed!
+uvicorn app.main:app --reload --port 8000   # optional live server
 ```
 
-### قدم 2: نصب — جادوگر — فقط Enter — پشتیبانی صفر — تاریکی روشن شد
+Windows: use `.venv\Scripts\activate`. For container-based work see [INSTALL.md](INSTALL.md).
 
-```bash
-chmod +x install.sh
-./install.sh
-```
+## 2. Branch & commit conventions
 
-جادوگر همه چی رو می‌پرسه با راهنما همون‌جا — فقط ضروری‌ها — پرووایدر + SMS + ناتیف — با هزینه — با تست واقعی — تاریکی روشن شد
+- Branch from `main`: `feat/<short-name>`, `fix/<short-name>`, `docs/<short-name>`, `chore/<short-name>`.
+- Conventional Commits: `feat: add EPUB adapter`, `fix: enforce upload size cap`, `docs: align API examples with v3.2.4`.
+- One logical change per PR. If you refactor *and* fix behavior, split it.
 
-### قدم 3: تغییر + تست + PR
+## 3. Definition of Done (PR checklist)
 
-```bash
-# تغییر بده
-# تست بزن
-./status.sh — وضعیت پرووایدرها — تاریکی روشن شد
-./smoke-test.sh — تست کامل — تاریکی روشن شد
-pytest -q — اگر Python
-npm test — اگر Node
+Code:
+- [ ] `pytest -q` passes locally (add at least one test for any new behavior; bug fixes need a regression test)
+- [ ] `ruff check app/` clean
+- [ ] No new required dependency without adding it to `requirements.txt` (optional deps must degrade gracefully via `UnsupportedFormat`)
 
-# Commit
-git add -A
-git commit -m "feat: my feature — تاریکی روشن شد"
-git push origin main
+Contracts (this repo treats these as hard rules):
+- [ ] Any user-supplied filename/path goes through `app/security.py` helpers only
+- [ ] Extraction failures return tagged strings, never 5xx
+- [ ] Version changes happen in `app/config.py` alone; `/api/health`, app metadata, README badge stay consistent (a test asserts this)
 
-# PR بساز — https://github.com/ansariaiadmin/universal-document-os/pulls
-```
+Docs (updated **in the same PR**):
+- [ ] New/changed endpoint → [docs/API.md](docs/API.md) example + response shape updated
+- [ ] New env var → table in README §Configuration + `.env.example` comment
+- [ ] New format → formats table in README + docs/API
+- [ ] Architecture-level change → [ARCHITECTURE.md](ARCHITECTURE.md) module map / ADR list
+- [ ] User-visible feature → CHANGELOG entry under an "Unreleased" heading
+- [ ] Scripts changed → keep `.sh` and `.bat` pairs equivalent; port stays **8000** everywhere
 
-## قوانین — ساده
+## 4. Testing guidelines
 
-- **کد تمیز:** ruff 0 — eslint 0 — 0 any — تاریکی روشن شد
-- **تست:** هر feature باید تست داشته باشه — 928 تست — تاریکی روشن شد
-- **امنیت:** .env permission 600 — no hardcoded secrets — secret scan 0 — تاریکی روشن شد
-- **مستندات:** هر feature باید docs داشته باشه — SETUP-WIZARD-FA.md — تاریکی روشن شد
-- **پشتیبانی صفر:** هر سوال راهنما همون‌جا — چیه؟ چرا؟ مثال؟ کجا؟ هزینه — تاریکی روشن شد
+- Put shared fixtures in `tests/conftest.py`; the session fixture already redirects `UPLOADS/OUTPUTS/WORKROOMS/AUDIT_FILE` to a temp dir — rely on it instead of touching repo `data/`.
+- Test behavior through the HTTP surface (`TestClient`) when possible; unit-test pure helpers (`sanitize_filename`, `resolve_within`, adapters) directly.
+- Async services (SMS/notification) can be tested by monkey-patching `httpx.AsyncClient` — no real outbound calls in CI.
 
-## چی باید سر جاش باشه که نیست؟ — چک‌لیست
+## 5. Style
 
-- ✅ README.md — با badge + v3.1.2 + تاریکی روشن شد
-- ✅ LICENSE — MIT — باید باشه
-- ✅ SECURITY.md — سیاست امنیت — باید باشه — تاریکی روشن شد
-- ✅ CHANGELOG.md — تاریخچه نسخه‌ها
-- ✅ CONTRIBUTING.md — همین فایل — باید باشه
-- ✅ .env.example — با NOTIF + FALLBACK + THROTTLING + توضیح فارسی — تاریکی روشن شد
-- ✅ docker-compose.yml — با healthcheck + env_file + NOTIF — تاریکی روشن شد
-- ✅ install.sh — v3.1.1 — با chmod 600 + idempotency + هزینه + تست واقعی — تاریکی روشن شد
-- ✅ install.bat — v3.1.0 — برای ویندوز — تاریکی روشن شد
-- ✅ status.sh — v3.1.0 — با health check پرووایدرها + اعتبار — تاریکی روشن شد
-- ✅ smoke-test.sh — v3.1.1 — با SMS تست واقعی + Telegram تست — تاریکی روشن شد
-- ✅ backup.sh — v3.1.0 — با encrypt + .env + keep last 7 — تاریکی روشن شد
-- ✅ update.sh — v3.1.0 — با backup auto + new env check — تاریکی روشن شد
-- ✅ docs/SETUP-WIZARD-FA.md — v3.1.0 — پشتیبانی صفر — تاریکی روشن شد
-- ✅ docs/SETUP-WEB-WIZARD.html — v4.0.0 — بدون ترمینال — فقط کلیک — تاریکی روشن شد
-- ✅ docs/ARCHITECTURE.md — با mermaid graph — تاریکی روشن شد
-- ✅ docs/API.md — با Swagger — باید باشه — تاریکی روشن شد — جدید v3.1.2
-- ✅ src/lib/notification — با throttling + fallback — سقف — تاریکی روشن شد
-- ✅ src/lib/sms — Ghasedak/Kavenegar واقعی — با balance + cost — تاریکی روشن شد
-- ✅ tests — 928 تست — باید باشه
-- ✅ .github/workflows — CI/CD — باید باشه
+- Python 3.11+, type hints where they clarify, `from __future__ import annotations` in modules.
+- Line length ≤ 120 (ruff config in `pyproject.toml`).
+- Logging via `logging`/`app.lib.logger` — never `print()` at import time or in request paths.
+- Docstrings: one-line summary + parameters/returns for public functions. Keep them truthful to current behavior.
 
-## سوالات؟
+## 6. Review process
 
-- Issues: https://github.com/ansariaiadmin/universal-document-os/issues
-- Docs: docs/SETUP-WIZARD-FA.md — برای مامان بزرگ — تاریکی روشن شد
-- Web Wizard: docs/SETUP-WEB-WIZARD.html — بدون ترمینال — v4.0.0 — تاریکی روشن شد
+1. Open a PR against `main`; fill the template (what/why/how-tested + checklist above).
+2. CI must be green: ruff, pytest, docker build.
+3. A maintainer reviews within a few days; expect direct, kind feedback focused on invariants.
+4. Merge = squash with your commit subject as the message.
 
-**نویسنده:** Fleet 10/10 — مشارکت سقف — تاریکی روشن شد
-**نسخه:** v3.1.2
+## 7. Good first issues
+
+Look for the [`good-first-issue`](https://github.com/ansariaiadmin/universal-document-os/issues?q=is%3Aissue+is%3Aopen+label%3Agood-first-issue) label. Typical shapes: add a detector mapping for a missing extension alias, improve an error message, document an edge case discovered in tests.
+
+## 8. What we won't merge
+
+- Secrets, tokens, or real customer documents anywhere in the repo (including tests/fixtures)
+- Features undocumented or untested
+- Changes that break the security invariants (§3 Contracts)
+- Cloud-service lock-in on the core path without a local-first fallback flag
+
+Questions? Open a discussion or read [AGENTS.md](AGENTS.md) for the deep handoff map.

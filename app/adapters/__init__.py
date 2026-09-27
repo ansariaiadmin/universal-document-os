@@ -94,89 +94,89 @@ def extract_pptx(path: pathlib.Path) -> str:
         raise RuntimeError(f"PPTX extraction failed: {e}")
 
 @register("ODT")
-def extract_odt(path: pathlib.Path) -> str:
-    """ODT adapter — tries odfpy, then zipfile fallback parsing content.xml."""
-    # Try odfpy first
-    try:
-        from odf import text as odf_text
-        from odf.opendocument import load
-        doc = load(str(path))
-        out = []
-        for para in doc.getElementsByType(odf_text.P):
-            # Concatenate text nodes
-            txt = ""
-            for node in para.childNodes:
-                if node.nodeType == node.TEXT_NODE:
-                    txt += node.data
-                elif hasattr(node, "childNodes"):
-                    for cn in node.childNodes:
-                        if hasattr(cn, "data"):
-                            txt += cn.data
-            if txt:
-                out.append(txt)
-        if out:
-            return "\n".join(out)
-    except ImportError:
-        pass  # try fallback
-    except Exception:
-        # If odfpy present but failed, try fallback
-        pass
+@register("ODS")
+@register("ODP")
+def extract_opendocument(path: pathlib.Path) -> str:
+    """OpenDocument formats (ODT/ODS/ODP) are ZIP files with XML payloads.
 
-    # Fallback: ODT is zip containing content.xml
+    We parse directly from the archive — no external dependency required —
+    and degrade to tag-stripping only if the XML itself is malformed.
+    """
+    import xml.etree.ElementTree as ET
+    import zipfile
+
+    members = {"ODT": "content.xml", "ODS": "content.xml", "ODP": "content.xml"}
+    fmt = _format_of(path)
     try:
-        import xml.etree.ElementTree as ET
-        import zipfile
         with zipfile.ZipFile(str(path)) as z:
-            if "content.xml" not in z.namelist():
-                raise UnsupportedFormat("ODT", "content.xml not found in ODT zip")
-            data = z.read("content.xml")
-            # Simple text extraction from content.xml: strip tags
-            # Parse XML and extract text:p
-            try:
-                root = ET.fromstring(data)
-                # Namespace handling: search for text:p elements
-                _ns = {"text": "urn:oasis:names:tc:opendocument:xmlns:text:1.0"}  # namespace for future
-                texts = []
-                for elem in root.iter():
-                    if elem.tag.endswith("}p") or elem.tag == "text:p":
-                        if elem.text:
-                            texts.append(elem.text)
-                        # also tail and child texts
-                        for child in elem.iter():
-                            if child is not elem and child.text:
-                                texts.append(child.text)
-                if texts:
-                    return "\n".join(texts)
-                # If namespace search failed, fallback to regex strip
-                import re
-                txt = re.sub(r"<[^>]+>", " ", data.decode("utf-8", errors="replace"))
-                txt = re.sub(r"\s+", " ", txt).strip()
-                if txt:
-                    return txt
-            except ET.ParseError:
-                import re
-                txt = re.sub(r"<[^>]+>", " ", data.decode("utf-8", errors="replace"))
-                txt = re.sub(r"\s+", " ", txt).strip()
-                return txt
+            name = members.get(fmt, "content.xml")
+            if name not in z.namelist():
+                raise UnsupportedFormat(fmt, f"{name} not found in archive")
+            data = z.read(name)
     except zipfile.BadZipFile as e:
-        raise RuntimeError(f"ODT extraction failed: not a valid zip: {e}")
-    except UnsupportedFormat:
-        raise
-    except Exception as e:
-        raise RuntimeError(f"ODT extraction failed: {e}")
+        raise RuntimeError(f"{fmt} extraction failed: not a valid zip: {e}")
 
-    # If we reach here, odfpy not installed and fallback produced empty -> raise UnsupportedFormat with guidance
-    raise UnsupportedFormat("ODT", "odfpy not installed and fallback empty; install odfpy: pip install odfpy")
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        # Malformed XML — last-resort tag strip keeps the pipeline alive.
+        import re
+        txt = re.sub(r"<[^>]+>", " ", data.decode("utf-8", errors="replace"))
+        return re.sub(r"\s+", " ", txt).strip()
+
+    # Collect all text nodes; paragraph boundaries become newlines.
+    parts = []
+    for elem in root.iter():
+        tag = elem.tag.rpartition("}")[2]
+        if elem.text and elem.text.strip():
+            parts.append(elem.text if tag != "p" else "\n" + elem.text)
+        if elem.tail and elem.tail.strip():
+            parts.append(elem.tail)
+    return "".join(parts).strip()
+
 
 def get_extractor(fmt: str):
     """Return extractor for format, or None."""
     return _EXTRACTORS.get(fmt.upper())
 
+_EXT_FORMATS = {
+    ".pdf": "PDF", ".docx": "DOCX", ".doc": "DOC", ".xlsx": "XLSX", ".xls": "XLS",
+    ".pptx": "PPTX", ".ppt": "PPT", ".odt": "ODT", ".ods": "ODS", ".odp": "ODP",
+    ".rtf": "RTF", ".csv": "CSV", ".txt": "TXT", ".md": "MARKDOWN", ".html": "HTML",
+    ".htm": "HTML", ".json": "JSON",
+    ".png": "IMAGE", ".jpg": "IMAGE", ".jpeg": "IMAGE", ".webp": "IMAGE", ".tif": "IMAGE", ".tiff": "IMAGE",
+}
+
+
+def format_of(path: pathlib.Path) -> str:
+    """Map a file path to its canonical format string (single source of truth)."""
+    ext = path.suffix.lower()
+    if ext in _EXT_FORMATS:
+        return _EXT_FORMATS[ext]
+    import mimetypes
+    guess = mimetypes.guess_type(path.name)[0] or ""
+    return guess.upper().replace("/", "_") if guess else "UNKNOWN"
+
+
+def _format_of(path: pathlib.Path) -> str:
+    return format_of(path)
+
+
 def extract(path: pathlib.Path, fmt: str | None = None) -> str:
     """High-level extract dispatching to adapters, raising UnsupportedFormat if needed."""
     if fmt is None:
-        from ..main import detect as _detect  # lazy to avoid circular
-        fmt = _detect(path)
+        fmt = format_of(path)
+    if fmt.upper() == "IMAGE":
+        from app.ocr.multi_engine import ocr as _ocr  # images go through real OCR
+        result = _ocr.extract(str(path))
+        if result.get("error"):
+            raise UnsupportedFormat("IMAGE", result["error"])
+        text = result["text"]
+        if not text.strip():
+            # Successful run with no detected text — report honestly, never fabricate.
+            return "[NO_TEXT_DETECTED]"
+        return text
+
     extractor = get_extractor(fmt)
     if extractor is None:
         # Unknown format -> treat as textlike if possible else unsupported

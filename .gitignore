@@ -1,18 +1,7 @@
-node_modules/
-.env
-.env.*
-dist/
-build/
-.next/
-*.log
+# Python compiled files
 __pycache__/
-.venv/
-venv/
+*.py[cod]
+*$py.class
 
-# runtime data — never commit user uploads/outputs/workrooms
-data/uploads/
-data/outputs/
-data/workrooms/
-data/*.jsonl
-runtime/
-*.pid
+# Data and runtime artifacts
+data/
