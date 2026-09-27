@@ -21,7 +21,7 @@ jobs:
           pip install -r requirements.txt
       - name: Lint (ruff 0 errors)
         run: ruff check . --exclude .venv
-      - name: Tests (19 passed)
+      - name: Tests
         run: python -m pytest -q
       - name: Compile check
         run: python -m py_compile app/main.py

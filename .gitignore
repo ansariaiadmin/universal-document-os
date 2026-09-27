@@ -1,10 +1,2 @@
-# Python compiled files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Data directories (runtime artifacts)
-data/outputs/
-data/uploads/
-data/workrooms/
-data/audit.jsonl
+# Bundles and archives
+*.bundle

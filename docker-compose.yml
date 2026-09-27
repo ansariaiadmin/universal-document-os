@@ -1,4 +1,5 @@
-# تاریکی روشن شد — v3.1.0 — NOTIF + SMS + TELEGRAM + fallback + throttling — .env شامل همه — docker-compose env_file .env را می‌خواند — امن
+# Universal Document OS — container orchestration (see docs/DEPLOYMENT.md)
+# All runtime configuration is environment-driven; copy .env.example to .env first.
 services:
   udo:
     build: .
@@ -8,9 +9,12 @@ services:
       - ./data:/app/data
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false   # falls back to defaults / inline environment below
     environment:
       PORT: 8000
+      APP_VERSION: ${APP_VERSION:-3.2.6}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
