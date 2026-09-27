@@ -1,10 +1,12 @@
-# Universal Document OS — container orchestration (see docs/DEPLOYMENT.md)
+# Universal Document OS — container orchestration
 # All runtime configuration is environment-driven; copy .env.example to .env first.
+# NOTE: env_file uses the modern optional-file syntax (Compose v2.24+);
+# on older Compose versions remove the env_file block entirely.
 services:
   udo:
     build: .
     ports:
-      - "8000:8000"
+      - "${PORT:-8000}:8000"
     volumes:
       - ./data:/app/data
     restart: unless-stopped
@@ -13,8 +15,11 @@ services:
         required: false   # falls back to defaults / inline environment below
     environment:
       PORT: 8000
-      APP_VERSION: ${APP_VERSION:-3.2.6}
+      APP_VERSION: ${APP_VERSION:-4.2.0}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
+      # Opt-in guards (dev defaults: off). Set in .env to enable.
+      UDO_API_KEYS: ${UDO_API_KEYS:-}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-0}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s

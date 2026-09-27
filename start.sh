@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
+# Universal Document OS — start (docker compose)
 set -e
-echo "شروع Universal Document OS — Document Processing / Starting Universal Document OS — Document Processing..."
 if [ -f docker-compose.yml ]; then
   docker compose up -d
   docker compose ps
-  echo "✓ اجرا شد / Started - http://localhost:8000 (Landing) و http://localhost:8000/app (Panel)"
+  echo "✓ http://localhost:8000 (landing) · http://localhost:8000/app (panel + smart dashboard)"
 else
-  echo "برای CLI: ./project-robots --help یا source .venv/bin/activate && python -m app.main"
-  if [ -f package.json ]; then npm run dev; fi
+  echo "docker-compose.yml not found — run from the project root, or use run.sh for a native venv server"
 fi

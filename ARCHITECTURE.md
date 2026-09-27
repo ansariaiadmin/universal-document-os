@@ -1,6 +1,6 @@
 # معماری سیستم — Universal Document OS
 
-**نسخه مستند:** v3.2.4 · هم‌راستا با `APP_VERSION` در `app/config.py`
+**نسخه مستند:** v4.2.0 · هم‌راستا با `APP_VERSION` در `app/config.py`
 
 این سند، معماری واقعی کد را توضیح می‌دهد — همان چیزی که در مخزن اجرا می‌شود، نه آنچه قرار است روزی بشود. برای هر ادعا، فایل مبدأ ذکر شده تا بتوانید راستی‌آزمایی کنید. موارد برنامه‌ریزی‌شده صریحاً با برچسب **«برنامه آینده»** جدا شده‌اند.
 
@@ -133,8 +133,8 @@ sequenceDiagram
 | `app/config.py` | مسیرها (`BASE/DATA/UPLOADS/OUTPUTS/WORKROOMS/AUDIT_FILE`)، `MAX_UPLOAD_BYTES`، `PREVIEW_CHARS`، `APP_VERSION` | همه env-driven؛ تست‌ها همین attribute‌ها را monkey-patch می‌کنند |
 | `app/security.py` | `sanitize_filename()` و `resolve_within()` | resolve کامل + بررسی containment پس از symlink |
 | `app/adapters/__init__.py` | رجیستری فرمت‌ها + پیاده‌سازی همه استخراج‌گرها | `UnsupportedFormat` تمیز؛ fallback متنی برای فرمت ناشناخته |
-| `app/ocr/` | موتورهای OCR | `tesseract_engine.py` واقعی (pytesseract/RapidOCR با graceful skip)؛ `multi_engine.py` هنوز mock |
-| `app/translation/service.py` | رابط provider + mock + LayoutReconstructor + GoldenBenchmark | خروجی mock با `"mock": true` علامت می‌خورد |
+| `app/ocr/` | موتورهای OCR واقعی | tesseract (باینری داخل ایمیج داکر با eng+fas) و rapidocr؛ تشخیص دسترس‌پذیری واقعی با `engine_available()`؛ نبود ابزار ⇒ خطای صادقانه، هرگز متن جعلی |
+| `app/translation/service.py` | رابط provider + mock + LayoutReconstructor + GoldenBenchmark | خروجی mock با `"mock": true` علامت می‌خورد؛ benchmark بدون dataset از گزارش امتناع می‌کند (عدد ساختگی ممنوع) |
 | `app/services/sms/` | آداپتورهای واقعی Ghasedak/Kavenegar + `SmsService` با fallback mock | هزینه تقریبی هر پیامک ~۱۲۰ تومان |
 | `app/services/notification/` | سرویس چندکاناله؛ inbox پایدار JSON (سقف ۵۰)؛ Telegram واقعی | کانال email/sms در این سرویس stub است |
 | `app/lib/logger.py` | helper لاگ ساخت‌یافته stdout | بدون print در مسیر import |
@@ -199,12 +199,12 @@ def extract_pdf(path: pathlib.Path) -> str: ...
 
 صادقانه، به‌ترتيب اهمیت:
 
-1. **بدون احراز هویت** — فقط localhost/شبکه خصوصی. قبل از public شدن، auth الزامی است (roadmap).
-2. **OCR/Translation در API فعال نیست** — ماژول‌ها آماده‌اند ولی `/api/process` هنوز فراخوانی‌شان نمی‌کند.
-3. **فرمت‌های legacy (DOC/XLS/PPT/ODS/ODP)** شناسایی ولی استخراج نمی‌شوند — راه‌حل برنامه‌ریزی‌شده: تبدیل با LibreOffice headless.
-4. **ذخیره JSON-فایلی** — برای بار همزمان بالا یا چند-نودی مناسب نیست؛ مهاجرت به SQLite/Postgres در roadmap.
-5. **بدون rate-limit و quota** — در deployment مشترک لازم است.
-6. **بدون metrics/tracing** — Prometheus/OpenTelemetry هنوز اضافه نشده.
+1. **auth اختیاری است نه پیش‌فرض** — تا `UDO_API_KEYS` ست نشود هر کسی که به پورت برسد آپلود می‌کند؛ قبل از استقرار عمومی الزامی است.
+2. **Translation در API فعال نیست** — ماژول با provider آماده است ولی endpoint ندارد (OCR برای عکس‌ها وصل است؛ OCR صفحات PDF اسکن‌شده در roadmap است).
+3. **فرمت‌های legacy (XLS/PPT)** شناسایی ولی استخراج نمی‌شوند (DOC با antiword واقعاً استخراج می‌شود) — راه‌حل برنامه‌ریزی‌شده: LibreOffice headless.
+4. **workrooms/audit فایل‌محور** — job store حالا SQLite (WAL) است؛ مهاجرت workroom/audit به DB در roadmap است.
+5. **rate-limit اختیاری و per-process** — پشت چند worker تعداد را متناسب ست کنید.
+6. **tracing ندارد** — Prometheus `/metrics` هست؛ OpenTelemetry در roadmap است.
 
 ## تصمیم‌های معماری (ADR خلاصه)
 

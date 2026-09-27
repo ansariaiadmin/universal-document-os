@@ -92,16 +92,10 @@ class MultiEngineOCR:
         }
 
     def health(self) -> Dict[str, bool]:
-        """Report which engines are actually usable right now."""
-        status = {}
-        for engine in self.engines:
-            probe = {}
-            try:
-                probe = engine.extract("__nonexistent__.png")
-            except Exception:
-                probe = {"skipped": False}  # raised => deps present, binary reachable
-            status[engine.name] = not probe.get("skipped", True)
-        return status
+        """Report which engines are actually usable right now (real probes)."""
+        from app.ocr.tesseract_engine import engine_available
+
+        return {engine.name: engine_available(engine.name) for engine in self.engines}
 
 
 # Singleton used across the app

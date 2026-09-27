@@ -1,14 +1,16 @@
-"""API-key authentication middleware (v3.5).
+"""API-key authentication middleware (v4.3).
 
 Behavior:
 - If ``UDO_API_KEYS`` env var is unset/empty, auth is DISABLED (dev mode).
-- Otherwise every request to a protected path (/api/* except /api/health)
+- Otherwise every request to a protected path (/api/* except public probes)
   must carry ``X-API-Key: <key>`` matching one of the comma-separated keys.
 - Health and docs stay public so uptime probes and API browsing work;
   the UI prompts for a key and stores it in sessionStorage.
+- Key comparison is constant-shape via ``hmac.compare_digest`` (timing-safe).
 """
 from __future__ import annotations
 
+import hmac
 import os
 
 from fastapi import Request
@@ -27,13 +29,18 @@ def auth_enabled() -> bool:
     return len(api_keys()) > 0
 
 
+def key_matches(supplied: str, keys: list[str]) -> bool:
+    """Constant-time comparison against every configured key."""
+    return any(hmac.compare_digest(supplied, k) for k in keys)
+
+
 async def api_key_guard(request: Request, call_next):
     """FastAPI middleware enforcing X-API-Key when configured."""
     keys = api_keys()
     path = request.url.path
     if keys and path.startswith(_PROTECTED_PREFIX) and path not in _PUBLIC_API:
         supplied = request.headers.get("x-api-key", "")
-        if not any(supplied == k for k in keys):
+        if not key_matches(supplied, keys):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "missing or invalid X-API-Key header"},

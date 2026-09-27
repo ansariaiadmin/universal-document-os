@@ -28,7 +28,11 @@ _RANGES = {
     "zh": ((0x4E00, 0x9FFF), (0x3400, 0x4DBF)),
     "ru": ((0x0400, 0x04FF),),
 }
-_FA_EXTRA = set("پچژگکیه")  # letters unique to Persian among Arabic-script chars
+# Letters unique to Persian among Arabic-script chars, by explicit codepoint:
+# پ U+067E, چ U+0686, ژ U+0698, گ U+06AF, ک U+06A9, ی U+06CC.
+# NOTE: ه (U+0647) is NOT in this set — it is one of the most common Arabic
+# letters and historically misdetection tagged pure Arabic text as "fa".
+_FA_EXTRA = {"\u067e", "\u0686", "\u0698", "\u06af", "\u06a9", "\u06cc"}
 
 
 def _in_ranges(ch: str, ranges) -> bool:

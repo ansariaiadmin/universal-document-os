@@ -1,24 +1,14 @@
 @echo off
-echo 📊 وضعیت universal-document-os — Status v3.1.0 — تاریکی روشن شد
+echo Status: Universal Document OS
 echo ========================================
-docker --version
-docker compose ps
+docker --version 2>nul || echo Docker missing
+docker compose ps 2>nul
 echo.
-echo 🔑 .env — امنیت — تاریکی روشن شد
-if exist .env (
-  echo ✅ .env وجود دارد
-) else (
-  echo ❌ .env نیست — install.bat بزن
-)
+echo .env:
+if exist .env (echo   .env exists ^(kept out of git^)) else (echo   .env missing - run install.bat)
 echo.
-echo 🤖 پرووایدرها — تاریکی روشن شد
-echo   اگر mock — رایگان — بعداً کلید واقعی بذار
-echo   اگر ghasedak/kavenegar — هر پیامک ~120 تومان — اعتبار چک کن
-echo   اگر openai — هر درخواست ~0.01 دلار
-echo   Telegram — رایگان — بهترین
-echo.
-echo 🌐 Health
-curl -sf http://localhost:8000/app >nul 2>&1 && echo ✅ http://localhost:8000/app — اوکی || echo ⚠️ http://localhost:8000/app — خاموش
-curl -sf http://localhost:8000 >nul 2>&1 && echo ✅ http://localhost:8000 — اوکی || echo ⚠️ http://localhost:8000 — خاموش
+echo Health:
+curl -sf http://localhost:8000/api/health >nul 2>&1 && echo   OK - http://localhost:8000/api/health UP || echo   DOWN - run start.bat
+curl -sf http://localhost:8000/app >nul 2>&1 && echo   OK - panel UP || echo   panel DOWN
 echo.
 pause

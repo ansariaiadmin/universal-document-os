@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-echo "لاگ‌های Universal Document OS — Document Processing / Logs Universal Document OS — Document Processing"
-echo "========================================"
-if [ -f docker-compose.yml ]; then
+# Universal Document OS — logs
+if [ -f docker-compose.yml ] && command -v docker &> /dev/null; then
   docker compose logs --tail=100 -f
 else
-  echo "لاگ فایل‌ها:"
-  ls -lh logs/ 2>/dev/null || ls -lh *.log 2>/dev/null || echo "لاگ فایل مستقیم وجود ندارد، با pytest -q تست کنید"
-  if [ -d .venv ]; then
-    echo "برای اجرای دستی با لاگ: source .venv/bin/activate && python -m app.main"
-  fi
+  echo "Docker not available — native run logs go to the terminal that started uvicorn (see run.sh)."
+  ls -lh logs/ 2>/dev/null || true
 fi
