@@ -3,5 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Data and runtime artifacts
-data/
+# Data directories (runtime artifacts)
+data/outputs/
+data/uploads/
+data/workrooms/
+data/audit.jsonl

@@ -1,0 +1,10 @@
+{
+  "job_id": "b31afdcf70fa4a4e85a7dc0bb6c90815",
+  "filename": "test.txt",
+  "detected_format": "TXT",
+  "operation": "analyze",
+  "target_format": "same",
+  "characters": 23,
+  "status": "ANALYZED",
+  "preview": "hello world test upload"
+}

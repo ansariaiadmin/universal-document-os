@@ -1,0 +1,10 @@
+{
+  "job_id": "17ff616bd1024b1eacba2668aea76086",
+  "filename": "readme.md",
+  "detected_format": "MARKDOWN",
+  "operation": "analyze",
+  "target_format": "same",
+  "characters": 24,
+  "status": "ANALYZED",
+  "preview": "# Hello\nThis is markdown"
+}

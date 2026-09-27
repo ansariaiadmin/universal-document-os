@@ -1,0 +1,10 @@
+{
+  "job_id": "67706fb18bdb4076bd2268379538dcfe",
+  "filename": "note.txt",
+  "detected_format": "TXT",
+  "operation": "export_text",
+  "target_format": "txt",
+  "characters": 23,
+  "status": "ANALYZED",
+  "preview": "exportable text content"
+}
